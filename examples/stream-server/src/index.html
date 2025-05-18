@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>SSE Chat</title>
+</head>
+
+<body>
+    <h1>SSE Chat</h1>
+    <div id="chat" style="white-space: pre-wrap; overflow-y: auto; height: 300px;">
+        <span class="content"></span>
+    </div>
+    <input type="text" id="prompt" placeholder="Enter your prompt" />
+    <button type="button" id="submitPrompt">Send Prompt</button>
+    <script>
+        const contentSpan = document.querySelector('#chat .content');
+
+        const chat = document.getElementById('chat');
+        const promptInput = document.getElementById('prompt');
+        const submitPrompt = document.getElementById('submitPrompt');
+
+        // Handle prompt submission
+        submitPrompt.onclick = async function () {
+            const promptText = promptInput.value;
+            if (!promptText) {
+                alert("Please enter a prompt.");
+                return;
+            }
+
+            // Send POST request to /test
+            try {
+                const response = await fetch(`http://${location.host}/test`, {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                    },
+                    body: JSON.stringify({ prompt: promptText }),
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                // Process the response as a stream
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder("utf-8");
+                let buffer = "";
+
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+
+                    // Decode the chunk and append to the buffer
+                    buffer += decoder.decode(value, { stream: true });
+
+                    // Process complete SSE messages in the buffer
+                    let lines = buffer.split("\n\n"); // SSE messages are separated by double newlines
+                    buffer = lines.pop(); // Keep the incomplete message in the buffer
+
+                    // ...原有缓冲处理代码...
+                    for (const line of lines) {
+                        if (line.startsWith("data:")) {
+                            // 使用slice(5)代替trim()保留所有空格
+                            const message = line.slice(5).replace(/^\s+/, ''); // 只去除"data:"后的首部空格
+                            showMessage(message);
+                        }
+                    }
+                }
+
+                // Handle any remaining data in the buffer
+                if (buffer.startsWith("data:")) {
+                    const message = buffer.slice(5).trim();
+                    showMessage(message);
+                }
+            } catch (error) {
+                console.error("Error:", error);
+                showMessage("<Error>: Failed to receive stream.");
+            }
+
+            // Clear the input field
+            promptInput.value = '';
+        };
+
+        function showMessage(data) {
+            // 直接追加到同一个元素中
+            contentSpan.textContent += data;
+
+            // 如果需要处理服务器返回的换行符，可以替换为：
+            // contentSpan.innerHTML += data.replace(/\n/g, '<br>') + ' ';
+
+            // 自动滚动到底部
+            chat.scrollTop = chat.scrollHeight;
+        }
+    </script>
+</body>
+
+</html>

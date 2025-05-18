@@ -1,0 +1,9 @@
+# Logging configuration
+[log_config]
+enable_debug = false
+prefix = "data_monitor"
+
+# MongoDB configuration
+[mongo_config]
+uri = "mongodb://localhost:27017"
+db_name = "paper"
