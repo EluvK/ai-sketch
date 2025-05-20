@@ -2,6 +2,7 @@ mod app_data;
 mod config;
 mod model;
 mod router;
+mod error;
 mod timed_task;
 
 use salvo::prelude::*;
