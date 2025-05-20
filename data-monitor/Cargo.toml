@@ -8,7 +8,9 @@ authors = ["eluvk.dev@gmail.com"]
 ai-flow-synth = { path = "../ai-flow-synth" }
 anyhow = { workspace = true }
 async-trait = { workspace = true }
-bson = "2.14.0"
+bson = { version = "2.14.0", features = ["chrono-0_4"] }
+chrono = "0.4.41"
+futures-util = "0.3.31"
 salvo = { version = "0.78", features = ["affix-state", "anyhow"] }
 serde = { workspace = true }
 serde_json = { workspace = true }

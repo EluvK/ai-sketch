@@ -1,12 +1,11 @@
 use std::any::Any;
 
-use ai_flow_synth::utils::MongoError;
 use salvo::{Depot, Request, Response, Writer};
 
 #[derive(Debug, thiserror::Error)]
 pub enum ServiceError {
     #[error("MongoDB error: {0}")]
-    MongoError(#[from] MongoError),
+    MongoError(#[from] ai_flow_synth::utils::MongoError),
     #[error("IO error: {0}")]
     IoError(#[from] std::io::Error),
     #[error("Others error: {0}")]
