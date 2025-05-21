@@ -5,6 +5,7 @@ mod model;
 mod monitor;
 mod router;
 mod timed_task;
+mod utils;
 
 use salvo::prelude::*;
 use timed_task::register_timed_task;

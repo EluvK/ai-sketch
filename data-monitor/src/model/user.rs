@@ -1,5 +1,6 @@
-use ai_flow_synth::utils::{IndexModel, MongoClient};
+use ai_flow_synth::utils::MongoClient;
 use bson::doc;
+use mongodb::IndexModel;
 use salvo::async_trait;
 use serde::{Deserialize, Serialize};
 

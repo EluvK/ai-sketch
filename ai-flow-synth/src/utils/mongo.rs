@@ -2,8 +2,6 @@ use mongodb::{Client, Database, options::ClientOptions};
 use serde::Deserialize;
 use std::{error::Error, sync::Arc};
 
-pub use mongodb::{IndexModel, error::Error as MongoError, options::IndexOptions};
-
 #[derive(Debug, Deserialize)]
 pub struct MongoConfig {
     pub uri: String,
