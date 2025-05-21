@@ -46,7 +46,7 @@ pub enum DailyStatisticsType {
 }
 
 pub async fn create_index(client: &MongoClient) -> anyhow::Result<()> {
-    let collection = client.collection::<DailyStatistic>(DAILY_STATISTICS_COLLECTION_NAME);
+    let collection = client.collection::<DailyStatistic>(ADMIN_STATISTICS_COLLECTION_NAME);
     let indexes = vec![
         IndexModel::builder().keys(doc! { "date": 1 }).build(),
         IndexModel::builder().keys(doc! { "type": 1 }).build(),
@@ -74,7 +74,7 @@ pub trait DailyStatisticsRepository {
 #[async_trait::async_trait]
 impl DailyStatisticsRepository for MongoClient {
     async fn upsert(&self, statistics: DailyStatistic) -> anyhow::Result<u64> {
-        let collection = self.collection::<DailyStatistic>(DAILY_STATISTICS_COLLECTION_NAME);
+        let collection = self.collection::<DailyStatistic>(ADMIN_STATISTICS_COLLECTION_NAME);
         let filter = doc! { "date": &statistics.date, "type": to_bson(&statistics.r#type)? };
         let update = doc! {
             SET_OP: {
@@ -106,7 +106,7 @@ impl DailyStatisticsRepository for MongoClient {
         r#type: DailyStatisticsType,
         time: Option<(DateTime, DateTime)>,
     ) -> anyhow::Result<Vec<DailyStatistic>> {
-        let collection = self.collection::<DailyStatistic>(DAILY_STATISTICS_COLLECTION_NAME);
+        let collection = self.collection::<DailyStatistic>(ADMIN_STATISTICS_COLLECTION_NAME);
         let mut filter = doc! { "type": to_bson(&r#type)? };
         if let Some((start, end)) = time {
             let st = bson_to_date_string(&start);
@@ -126,7 +126,7 @@ impl DailyStatisticsRepository for MongoClient {
         date: String,
         r#type: DailyStatisticsType,
     ) -> anyhow::Result<Option<DailyStatistic>> {
-        let collection = self.collection::<DailyStatistic>(DAILY_STATISTICS_COLLECTION_NAME);
+        let collection = self.collection::<DailyStatistic>(ADMIN_STATISTICS_COLLECTION_NAME);
         let filter = doc! { "date": date, "type": to_bson(&r#type)? };
         Ok(collection.find_one(filter).await?)
     }

@@ -480,6 +480,7 @@ dependencies = [
  "bson",
  "chrono",
  "futures-util",
+ "mongodb",
  "salvo",
  "serde",
  "serde_json",
@@ -487,6 +488,7 @@ dependencies = [
  "tokio",
  "toml",
  "tracing",
+ "uuid",
 ]
 
 [[package]]
