@@ -1,4 +1,5 @@
 use ai_flow_synth::utils::MongoClient;
+use chrono::NaiveDate;
 use tracing::{error, info};
 
 use crate::{
@@ -15,16 +16,22 @@ pub async fn register_timed_task(context: AppDataRef) {
             // timed_task(context.clone()).await;
             let mongo_client = context.mongo_client.clone();
 
-            let date = chrono::Local::now().format("%Y-%m-%d").to_string();
+            let date = chrono::Local::now().naive_local().date();
             info!("Current date: {}", date);
 
-            calc_user(mongo_client, date).await;
+            // for i in 0..7 {
+            //     let date = date - chrono::Duration::days(i);
+            //     info!("Calculating user statistics for date: {}", date);
+            //     calc_user(mongo_client.clone(), &date).await;
+            // }
+
+            calc_user(mongo_client, &date).await;
         }
     });
 }
 
-async fn calc_user(mongo_client: MongoClient, date: String) {
-    match calculate_user_statistics(&mongo_client, &date).await {
+async fn calc_user(mongo_client: MongoClient, date: &NaiveDate) {
+    match calculate_user_statistics(&mongo_client, date).await {
         Ok(statistics) => {
             info!("User statistics: {:?}", statistics);
             _ = mongo_client.upsert(statistics).await;

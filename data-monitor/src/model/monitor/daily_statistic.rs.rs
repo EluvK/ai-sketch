@@ -1,9 +1,8 @@
-use std::vec;
-
 use ai_flow_synth::utils::MongoClient;
 use bson::{DateTime, doc, to_bson};
+use chrono::NaiveDate;
 use futures_util::TryStreamExt;
-use mongodb::{IndexModel, options::UpdateOptions};
+use mongodb::options::UpdateOptions;
 use salvo::Scribe;
 use serde::{Deserialize, Serialize};
 
@@ -11,12 +10,12 @@ use crate::{model::constant::*, utils::bson_to_date_string};
 
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
 pub struct DailyStatistic {
-    pub date: String,
+    pub date: NaiveDate,
     pub r#type: DailyStatisticsType,
     pub increment: i64,
     pub total: i64,
     pub active: i64,
-    pub time: DateTime,
+    pub time: DateTime, // update time
 }
 
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
@@ -45,16 +44,6 @@ pub enum DailyStatisticsType {
     UserNumbers,
 }
 
-pub async fn create_index(client: &MongoClient) -> anyhow::Result<()> {
-    let collection = client.collection::<DailyStatistic>(ADMIN_STATISTICS_COLLECTION_NAME);
-    let indexes = vec![
-        IndexModel::builder().keys(doc! { "date": 1 }).build(),
-        IndexModel::builder().keys(doc! { "type": 1 }).build(),
-    ];
-    collection.create_indexes(indexes).await?;
-    Ok(())
-}
-
 #[async_trait::async_trait]
 pub trait DailyStatisticsRepository {
     async fn upsert(&self, statistics: DailyStatistic) -> anyhow::Result<u64>;
@@ -62,11 +51,11 @@ pub trait DailyStatisticsRepository {
     async fn get_by_type(
         &self,
         r#type: DailyStatisticsType,
-        time: Option<(DateTime, DateTime)>,
+        date_range: (NaiveDate, NaiveDate),
     ) -> anyhow::Result<Vec<DailyStatistic>>;
     async fn get_by_date_and_type(
         &self,
-        date: String,
+        date: NaiveDate,
         r#type: DailyStatisticsType,
     ) -> anyhow::Result<Option<DailyStatistic>>;
 }
@@ -75,17 +64,9 @@ pub trait DailyStatisticsRepository {
 impl DailyStatisticsRepository for MongoClient {
     async fn upsert(&self, statistics: DailyStatistic) -> anyhow::Result<u64> {
         let collection = self.collection::<DailyStatistic>(ADMIN_STATISTICS_COLLECTION_NAME);
-        let filter = doc! { "date": &statistics.date, "type": to_bson(&statistics.r#type)? };
-        let update = doc! {
-            SET_OP: {
-                "date": &statistics.date,
-                "type": to_bson(&statistics.r#type)?,
-                "increment": statistics.increment,
-                "total": statistics.total,
-                "active": statistics.active,
-                "time": statistics.time,
-            }
-        };
+        let filter =
+            doc! { "date": to_bson(&statistics.date)?, "type": to_bson(&statistics.r#type)? };
+        let update = doc! { SET_OP: bson::to_document(&statistics)? };
         Ok(collection
             .update_one(filter, update)
             .with_options(Some(UpdateOptions::builder().upsert(true).build()))
@@ -104,30 +85,24 @@ impl DailyStatisticsRepository for MongoClient {
     async fn get_by_type(
         &self,
         r#type: DailyStatisticsType,
-        time: Option<(DateTime, DateTime)>,
+        date_range: (NaiveDate, NaiveDate),
     ) -> anyhow::Result<Vec<DailyStatistic>> {
         let collection = self.collection::<DailyStatistic>(ADMIN_STATISTICS_COLLECTION_NAME);
-        let mut filter = doc! { "type": to_bson(&r#type)? };
-        if let Some((start, end)) = time {
-            let st = bson_to_date_string(&start);
-            let ed = bson_to_date_string(&end);
-            filter.insert("date", doc! { "$gte": st, "$lt": ed });
-        } else {
-            let now = bson_to_date_string(&DateTime::now());
-            filter.insert("date", now);
-        }
+        let filter = doc! { "type": to_bson(&r#type)?, "date": { "$gte": to_bson(&date_range.0)?, "$lte": to_bson(&date_range.1)? } };
+        // tracing::info!("Querying statistics with filter: {:?}", filter);
         let cursor = collection.find(filter).await?;
         let results: Vec<DailyStatistic> = cursor.try_collect().await?;
+        // tracing::info!("Query results: {:?}", results);
         Ok(results)
     }
 
     async fn get_by_date_and_type(
         &self,
-        date: String,
+        date: NaiveDate,
         r#type: DailyStatisticsType,
     ) -> anyhow::Result<Option<DailyStatistic>> {
         let collection = self.collection::<DailyStatistic>(ADMIN_STATISTICS_COLLECTION_NAME);
-        let filter = doc! { "date": date, "type": to_bson(&r#type)? };
+        let filter = doc! { "date": to_bson(&date)?, "type": to_bson(&r#type)? };
         Ok(collection.find_one(filter).await?)
     }
 }

@@ -2,11 +2,7 @@ use bson::DateTime;
 use chrono::{NaiveDate, Utc};
 
 /// 从日期字符串 ("YYYY-MM-DD" as UTC+8) 转换为 BSON DateTime 的起止时间
-pub fn date_string_to_bson_range(date_str: &str) -> anyhow::Result<(DateTime, DateTime)> {
-    // 解析日期字符串为 NaiveDate
-    let naive_date = NaiveDate::parse_from_str(date_str, "%Y-%m-%d")
-        .map_err(|e| anyhow::anyhow!("Invalid date format: {}", e))?;
-
+pub fn date_to_bson_range(naive_date: &NaiveDate) -> anyhow::Result<(DateTime, DateTime)> {
     // 计算起止时间 UTC+8
     let start_of_day = naive_date
         .pred_opt()
@@ -35,10 +31,10 @@ pub fn date_string_to_bson_range(date_str: &str) -> anyhow::Result<(DateTime, Da
 }
 
 /// 从 BSON DateTime 转换回当地日期字符串 ("YYYY-MM-DD")
-pub fn bson_to_date_string(bson_datetime: &DateTime) -> String {
+pub fn bson_to_date_string(bson_datetime: &DateTime) -> NaiveDate {
     let chrono_datetime = bson_datetime.to_chrono().with_timezone(&chrono::Local);
     // println!("BSON DateTime: {:?}", bson_datetime);
-    chrono_datetime.date_naive().to_string()
+    chrono_datetime.date_naive()
 }
 
 #[cfg(test)]
@@ -49,13 +45,14 @@ mod tests {
     #[test]
     fn test_convert() {
         let date_str = "2025-05-21";
-        let (start, end) = date_string_to_bson_range(date_str).unwrap();
+        let date = NaiveDate::parse_from_str(date_str, "%Y-%m-%d").unwrap();
+        let (start, end) = date_to_bson_range(&date).unwrap();
         println!("Start: {}, End: {}", start, end);
 
         let bson_date_st = bson_to_date_string(&start);
         let bson_date_en = bson_to_date_string(&end);
         println!("BSON Start: {}, BSON End: {}", bson_date_st, bson_date_en);
-        assert_eq!(date_str, bson_date_st);
-        assert_eq!(date_str, bson_date_en);
+        assert_eq!(date, bson_date_st);
+        assert_eq!(date, bson_date_en);
     }
 }

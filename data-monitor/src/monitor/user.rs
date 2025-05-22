@@ -1,20 +1,20 @@
 use crate::{
     model::{DailyStatistic, DailyStatisticsType, User, constant::*},
-    utils::date_string_to_bson_range,
+    utils::date_to_bson_range,
 };
 
 use ai_flow_synth::utils::MongoClient;
 use bson::{DateTime, doc};
+use chrono::NaiveDate;
 
 /// 统计指定日期的用户数据
-/// param date_str: 日期字符串，格式为 "YYYY-MM-DD" UTC+8
 pub async fn calculate_user_statistics(
     client: &MongoClient,
-    date_str: &str,
+    date: &NaiveDate,
 ) -> anyhow::Result<DailyStatistic> {
     let collection = client.collection::<User>(USER_COLLECTION_NAME);
 
-    let (start, end) = date_string_to_bson_range(&date_str)?;
+    let (start, end) = date_to_bson_range(&date)?;
 
     // 新增用户数
     let new_users = collection
@@ -35,7 +35,7 @@ pub async fn calculate_user_statistics(
         .await?;
 
     Ok(DailyStatistic {
-        date: date_str.to_owned(),
+        date: date.to_owned(),
         r#type: DailyStatisticsType::UserNumbers,
         increment: new_users as i64,
         total: total_users as i64,

@@ -44,10 +44,21 @@ impl Writer for ServiceError {
                 res.status_code(StatusCode::INTERNAL_SERVER_ERROR);
                 res.render(msg);
             }
-            _ => {
+            ServiceError::MongoError(err) => {
                 res.status_code(StatusCode::INTERNAL_SERVER_ERROR);
-                res.render("Internal Server Error");
+                res.render(format!("MongoDB error: {}", err));
             }
+            ServiceError::IoError(err) => {
+                res.status_code(StatusCode::INTERNAL_SERVER_ERROR);
+                res.render(format!("IO error: {}", err));
+            }
+            ServiceError::Other(err) => {
+                res.status_code(StatusCode::INTERNAL_SERVER_ERROR);
+                res.render(format!("Other error: {}", err));
+            } // _ => {
+              //     res.status_code(StatusCode::INTERNAL_SERVER_ERROR);
+              //     res.render("Internal Server Error");
+              // }
         }
     }
 }

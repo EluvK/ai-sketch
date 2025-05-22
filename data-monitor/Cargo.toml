@@ -9,7 +9,7 @@ ai-flow-synth = { path = "../ai-flow-synth" }
 anyhow = { workspace = true }
 async-trait = { workspace = true }
 bson = { version = "2.14.0", features = ["chrono-0_4"] }
-chrono = "0.4.41"
+chrono = { version = "0.4.41", features = ["serde"] }
 futures-util = "0.3.31"
 mongodb = { workspace = true }
 salvo = { version = "0.78", features = ["affix-state", "anyhow"] }
