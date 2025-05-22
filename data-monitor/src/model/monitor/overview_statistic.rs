@@ -1,15 +1,19 @@
-use ai_flow_synth::utils::MongoClient;
-use bson::{doc, to_bson};
+use anyhow::Ok;
+use bson::{DateTime, doc};
 use chrono::NaiveDate;
-use futures_util::TryStreamExt;
 use salvo::Scribe;
 use serde::{Deserialize, Serialize};
 
-use crate::model::constant::*;
+use super::{
+    Statistic,
+    common::{StatisticContent, StatisticsType},
+};
 
-#[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct OverviewStatistic {
+#[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
+pub struct OverviewStatisticResponse {
     pub date: NaiveDate,
+    pub r#type: StatisticsType,
+    pub update_time: DateTime,
     pub user_summary: i64,
     pub user_active_weekly: i64,
     pub token_usage_summary: i64,
@@ -18,54 +22,30 @@ pub struct OverviewStatistic {
     pub amount_weekly: i64,
 }
 
-impl Scribe for OverviewStatistic {
+impl Scribe for OverviewStatisticResponse {
     fn render(self, res: &mut salvo::Response) {
         res.render(salvo::writing::Json(&self));
     }
 }
 
-#[async_trait::async_trait]
-pub trait OverviewStatisticsRepository {
-    async fn upsert(&self, statistics: OverviewStatistic) -> anyhow::Result<u64>;
-    async fn get_by_date(&self, date: String) -> anyhow::Result<Option<OverviewStatistic>>;
-    async fn get_by_date_range(
-        &self,
-        start_date: String,
-        end_date: String,
-    ) -> anyhow::Result<Vec<OverviewStatistic>>;
-}
+impl TryFrom<Statistic> for OverviewStatisticResponse {
+    type Error = anyhow::Error;
 
-#[async_trait::async_trait]
-impl OverviewStatisticsRepository for MongoClient {
-    async fn upsert(&self, statistics: OverviewStatistic) -> anyhow::Result<u64> {
-        let collection = self.collection::<OverviewStatistic>(ADMIN_STATISTICS_COLLECTION_NAME);
-        let filter = doc! { "date": to_bson(&statistics.date)? };
-        let update = doc! { SET_OP: bson::to_bson(&statistics)? };
-        let options = mongodb::options::UpdateOptions::builder()
-            .upsert(true)
-            .build();
-        let result = collection
-            .update_one(filter, update)
-            .with_options(options)
-            .await?;
-        Ok(result.modified_count)
-    }
-
-    async fn get_by_date(&self, date: String) -> anyhow::Result<Option<OverviewStatistic>> {
-        let collection = self.collection::<OverviewStatistic>(ADMIN_STATISTICS_COLLECTION_NAME);
-        let filter = doc! { "date": date };
-        let result = collection.find_one(filter).await?;
-        Ok(result)
-    }
-    async fn get_by_date_range(
-        &self,
-        start_date: String,
-        end_date: String,
-    ) -> anyhow::Result<Vec<OverviewStatistic>> {
-        let collection = self.collection::<OverviewStatistic>(ADMIN_STATISTICS_COLLECTION_NAME);
-        let filter = doc! { "date": { "$gte": start_date, "$lte": end_date } };
-        let cursor = collection.find(filter).await?;
-        let result: Vec<OverviewStatistic> = cursor.try_collect().await?;
-        Ok(result)
+    fn try_from(statistic: Statistic) -> Result<Self, Self::Error> {
+        if let StatisticContent::Overview(overview_statistic) = statistic.content {
+            Ok(OverviewStatisticResponse {
+                date: statistic.date,
+                r#type: statistic.r#type,
+                update_time: statistic.update_time,
+                user_summary: overview_statistic.user_summary,
+                user_active_weekly: overview_statistic.user_active_weekly,
+                token_usage_summary: overview_statistic.token_usage_summary,
+                token_usage_weekly: overview_statistic.token_usage_weekly,
+                amount_summary: overview_statistic.amount_summary,
+                amount_weekly: overview_statistic.amount_weekly,
+            })
+        } else {
+            Err(anyhow::anyhow!("Invalid statistic content type"))
+        }
     }
 }

@@ -12,7 +12,7 @@ bson = { version = "2.14.0", features = ["chrono-0_4"] }
 chrono = { version = "0.4.41", features = ["serde"] }
 futures-util = "0.3.31"
 mongodb = { workspace = true }
-salvo = { version = "0.78", features = ["affix-state", "anyhow"] }
+salvo = { version = "0.78", features = ["affix-state", "anyhow", "cors"] }
 serde = { workspace = true }
 serde_json = { workspace = true }
 thiserror = { workspace = true }

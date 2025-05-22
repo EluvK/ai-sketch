@@ -1,5 +1,5 @@
 use crate::{
-    model::{DailyStatistic, DailyStatisticsType, User, constant::*},
+    model::{DailyStatistic, Statistic, StatisticContent, StatisticsType, User, constant::*},
     utils::date_to_bson_range,
 };
 
@@ -11,7 +11,7 @@ use chrono::NaiveDate;
 pub async fn calculate_user_statistics(
     client: &MongoClient,
     date: &NaiveDate,
-) -> anyhow::Result<DailyStatistic> {
+) -> anyhow::Result<Statistic> {
     let collection = client.collection::<User>(USER_COLLECTION_NAME);
 
     let (start, end) = date_to_bson_range(&date)?;
@@ -34,12 +34,14 @@ pub async fn calculate_user_statistics(
         })
         .await?;
 
-    Ok(DailyStatistic {
+    Ok(Statistic {
         date: date.to_owned(),
-        r#type: DailyStatisticsType::UserNumbers,
-        increment: new_users as i64,
-        total: total_users as i64,
-        active: active_users as i64,
-        time: DateTime::now(),
+        r#type: StatisticsType::DailyUserNumbers,
+        content: StatisticContent::DailyNumbers(DailyStatistic {
+            increment: new_users as i64,
+            total: total_users as i64,
+            active: active_users as i64,
+        }),
+        update_time: DateTime::now(),
     })
 }

@@ -6,103 +6,77 @@ use mongodb::options::UpdateOptions;
 use salvo::Scribe;
 use serde::{Deserialize, Serialize};
 
-use crate::{model::constant::*, utils::bson_to_date_string};
+use super::{Statistic, StatisticContent, common::StatisticsType};
 
-#[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
-pub struct DailyStatistic {
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct OneDayResponse {
     pub date: NaiveDate,
-    pub r#type: DailyStatisticsType,
+    pub r#type: StatisticsType,
+    pub update_time: DateTime, // update time
     pub increment: i64,
     pub total: i64,
     pub active: i64,
-    pub time: DateTime, // update time
 }
 
-#[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
-pub struct DailyStatistics(pub Vec<DailyStatistic>);
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct DailyStatisticsResponse(pub Vec<OneDayResponse>);
 
-impl From<DailyStatistic> for DailyStatistics {
-    fn from(statistic: DailyStatistic) -> Self {
-        DailyStatistics(vec![statistic])
+impl From<OneDayResponse> for DailyStatisticsResponse {
+    fn from(statistic: OneDayResponse) -> Self {
+        DailyStatisticsResponse(vec![statistic])
     }
 }
 
-impl Scribe for DailyStatistic {
+impl Scribe for OneDayResponse {
     fn render(self, res: &mut salvo::Response) {
         res.render(salvo::writing::Json(&self));
     }
 }
 
-impl Scribe for DailyStatistics {
+impl Scribe for DailyStatisticsResponse {
     fn render(self, res: &mut salvo::Response) {
         res.render(salvo::writing::Json(&self));
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
-pub enum DailyStatisticsType {
-    UserNumbers,
+impl TryFrom<Statistic> for OneDayResponse {
+    type Error = anyhow::Error;
+
+    fn try_from(statistic: Statistic) -> Result<Self, Self::Error> {
+        if let StatisticContent::DailyNumbers(daily_statistic) = statistic.content {
+            Ok(OneDayResponse {
+                date: statistic.date,
+                r#type: statistic.r#type,
+                update_time: statistic.update_time,
+                increment: daily_statistic.increment,
+                total: daily_statistic.total,
+                active: daily_statistic.active,
+            })
+        } else {
+            Err(anyhow::anyhow!("Invalid statistic content type"))
+        }
+    }
 }
 
-#[async_trait::async_trait]
-pub trait DailyStatisticsRepository {
-    async fn upsert(&self, statistics: DailyStatistic) -> anyhow::Result<u64>;
-    // async fn get_by_date(&self, date: String) -> anyhow::Result<Vec<DailyStatistic>>;
-    async fn get_by_type(
-        &self,
-        r#type: DailyStatisticsType,
-        date_range: (NaiveDate, NaiveDate),
-    ) -> anyhow::Result<Vec<DailyStatistic>>;
-    async fn get_by_date_and_type(
-        &self,
-        date: NaiveDate,
-        r#type: DailyStatisticsType,
-    ) -> anyhow::Result<Option<DailyStatistic>>;
-}
+impl TryFrom<Vec<Statistic>> for DailyStatisticsResponse {
+    type Error = anyhow::Error;
 
-#[async_trait::async_trait]
-impl DailyStatisticsRepository for MongoClient {
-    async fn upsert(&self, statistics: DailyStatistic) -> anyhow::Result<u64> {
-        let collection = self.collection::<DailyStatistic>(ADMIN_STATISTICS_COLLECTION_NAME);
-        let filter =
-            doc! { "date": to_bson(&statistics.date)?, "type": to_bson(&statistics.r#type)? };
-        let update = doc! { SET_OP: bson::to_document(&statistics)? };
-        Ok(collection
-            .update_one(filter, update)
-            .with_options(Some(UpdateOptions::builder().upsert(true).build()))
-            .await?
-            .modified_count)
-    }
-
-    // async fn get_by_date(&self, date: String) -> anyhow::Result<Vec<DailyStatistic>> {
-    //     let collection = self.collection::<DailyStatistic>(DAILY_STATISTICS_COLLECTION_NAME);
-    //     let filter = doc! { "date": date };
-    //     let cursor = collection.find(filter).await?;
-    //     let results: Vec<DailyStatistic> = cursor.try_collect().await?;
-    //     Ok(results)
-    // }
-
-    async fn get_by_type(
-        &self,
-        r#type: DailyStatisticsType,
-        date_range: (NaiveDate, NaiveDate),
-    ) -> anyhow::Result<Vec<DailyStatistic>> {
-        let collection = self.collection::<DailyStatistic>(ADMIN_STATISTICS_COLLECTION_NAME);
-        let filter = doc! { "type": to_bson(&r#type)?, "date": { "$gte": to_bson(&date_range.0)?, "$lte": to_bson(&date_range.1)? } };
-        // tracing::info!("Querying statistics with filter: {:?}", filter);
-        let cursor = collection.find(filter).await?;
-        let results: Vec<DailyStatistic> = cursor.try_collect().await?;
-        // tracing::info!("Query results: {:?}", results);
-        Ok(results)
-    }
-
-    async fn get_by_date_and_type(
-        &self,
-        date: NaiveDate,
-        r#type: DailyStatisticsType,
-    ) -> anyhow::Result<Option<DailyStatistic>> {
-        let collection = self.collection::<DailyStatistic>(ADMIN_STATISTICS_COLLECTION_NAME);
-        let filter = doc! { "date": to_bson(&date)?, "type": to_bson(&r#type)? };
-        Ok(collection.find_one(filter).await?)
+    fn try_from(statistics: Vec<Statistic>) -> Result<Self, Self::Error> {
+        let mut responses = Vec::new();
+        for statistic in statistics {
+            if let StatisticContent::DailyNumbers(daily_statistic) = statistic.content {
+                responses.push(OneDayResponse {
+                    date: statistic.date,
+                    r#type: statistic.r#type,
+                    update_time: statistic.update_time,
+                    increment: daily_statistic.increment,
+                    total: daily_statistic.total,
+                    active: daily_statistic.active,
+                });
+            } else {
+                return Err(anyhow::anyhow!("Invalid statistic content type"));
+            }
+        }
+        Ok(DailyStatisticsResponse(responses))
     }
 }
