@@ -481,6 +481,7 @@ dependencies = [
  "chrono",
  "futures-util",
  "mongodb",
+ "rand 0.9.1",
  "salvo",
  "serde",
  "serde_json",

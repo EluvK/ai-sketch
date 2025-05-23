@@ -27,7 +27,7 @@ pub fn enable_log(config: &LogConfig) -> anyhow::Result<impl Drop> {
     let file_appender = tracing_appender::rolling::RollingFileAppender::builder()
         .rotation(tracing_appender::rolling::Rotation::DAILY)
         .filename_prefix(&log_prefix)
-        .filename_suffix(".log")
+        .filename_suffix("log")
         .build(file_path)?;
 
     let (non_blocking, _guard) = tracing_appender::non_blocking(file_appender);

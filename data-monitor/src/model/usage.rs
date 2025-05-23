@@ -7,12 +7,12 @@ use serde::{Deserialize, Serialize};
 
 use crate::model::constant::*;
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct UsageRecord {
     pub user_id: String,
     pub provider: String,
     pub llm_model: String,
-    pub token_cost: i64, //?why f64
+    pub token_cost: f64, //?why f64
     pub usage_date: DateTime,
 }
 

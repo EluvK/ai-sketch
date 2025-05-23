@@ -35,16 +35,24 @@ pub async fn calculate_overview_statistics(
         .get_usage_records_by_date_range((st7, ed))
         .await?
         .into_iter()
-        .fold(0, |acc, record| acc + record.token_cost);
+        .fold(0.0, |acc, record| acc + record.token_cost);
     let token_usage_monthly = mongo_client
         .get_usage_records_by_date_range((st30, ed))
         .await?
         .into_iter()
-        .fold(0, |acc, record| acc + record.token_cost);
+        .fold(0.0, |acc, record| acc + record.token_cost);
 
-    // todo
-    let amount_monthly = 0;
-    let amount_weekly = 0;
+    // billing
+    let amount_monthly = mongo_client
+        .get_billing_records_by_date_range((st30, ed), Some(RecordType::Recharge))
+        .await?
+        .into_iter()
+        .fold(0.0, |acc, record| acc + record.amount);
+    let amount_weekly = mongo_client
+        .get_billing_records_by_date_range((st7, ed), Some(RecordType::Recharge))
+        .await?
+        .into_iter()
+        .fold(0.0, |acc, record| acc + record.amount);
 
     Ok(Statistic {
         date: date.to_owned(),

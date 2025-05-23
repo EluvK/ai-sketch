@@ -16,10 +16,10 @@ pub struct OverviewStatisticResponse {
     pub update_time: DateTime,
     pub user_active_weekly: i64,
     pub user_summary: i64,
-    pub token_usage_weekly: i64,
-    pub token_usage_monthly: i64,
-    pub amount_weekly: i64,
-    pub amount_monthly: i64,
+    pub token_usage_weekly: f64,
+    pub token_usage_monthly: f64,
+    pub amount_weekly: f64,
+    pub amount_monthly: f64,
 }
 
 impl Scribe for OverviewStatisticResponse {
