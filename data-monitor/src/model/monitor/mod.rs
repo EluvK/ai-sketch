@@ -7,7 +7,7 @@ use bson::doc;
 use mongodb::IndexModel;
 
 pub use common::*;
-pub use daily_statistic::{OneDayResponse, DailyStatisticsResponse};
+pub use daily_statistic::DailyStatisticsResponse;
 pub use overview_statistic::OverviewStatisticResponse;
 
 use super::constant::ADMIN_STATISTICS_COLLECTION_NAME;

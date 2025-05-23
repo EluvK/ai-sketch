@@ -19,18 +19,18 @@ pub async fn calculate_user_statistics(
     // 新增用户数
     let new_users = collection
         .count_documents(doc! {
-            "created_at": { "$gte": &start, "$lt": &end }
+            "created_at": { GTE_OP: &start, LTE_OP: &end }
         })
         .await?;
     // 总用户数
     let total_users = collection
-        .count_documents(doc! { "created_at": { "$lt": &end } })
+        .count_documents(doc! { "created_at": { LTE_OP: &end } })
         .await?;
 
     // 活跃用户数（当天登录过的用户）
     let active_users = collection
         .count_documents(doc! {
-            "last_login_at": { "$gte": &start, "$lt": &end }
+            "last_login_at": { GTE_OP: &start, LTE_OP: &end }
         })
         .await?;
 

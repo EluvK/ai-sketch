@@ -14,12 +14,12 @@ pub struct OverviewStatisticResponse {
     pub date: NaiveDate,
     pub r#type: StatisticsType,
     pub update_time: DateTime,
-    pub user_summary: i64,
     pub user_active_weekly: i64,
-    pub token_usage_summary: i64,
+    pub user_summary: i64,
     pub token_usage_weekly: i64,
-    pub amount_summary: i64,
+    pub token_usage_monthly: i64,
     pub amount_weekly: i64,
+    pub amount_monthly: i64,
 }
 
 impl Scribe for OverviewStatisticResponse {
@@ -37,12 +37,12 @@ impl TryFrom<Statistic> for OverviewStatisticResponse {
                 date: statistic.date,
                 r#type: statistic.r#type,
                 update_time: statistic.update_time,
-                user_summary: overview_statistic.user_summary,
                 user_active_weekly: overview_statistic.user_active_weekly,
-                token_usage_summary: overview_statistic.token_usage_summary,
+                user_summary: overview_statistic.user_summary,
                 token_usage_weekly: overview_statistic.token_usage_weekly,
-                amount_summary: overview_statistic.amount_summary,
+                token_usage_monthly: overview_statistic.token_usage_monthly,
                 amount_weekly: overview_statistic.amount_weekly,
+                amount_monthly: overview_statistic.amount_monthly,
             })
         } else {
             Err(anyhow::anyhow!("Invalid statistic content type"))

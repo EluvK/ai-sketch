@@ -21,13 +21,13 @@ pub async fn register_timed_task(context: AppDataRef) {
             let date = chrono::Local::now().naive_local().date();
             info!("Current date: {}", date);
 
-            // for i in 0..20 {
-            //     let date = date - chrono::Duration::days(i);
-            //     info!("Calculating user statistics for date: {}", date);
-            //     calc_user(mongo_client.clone(), &date).await;
-            //     info!("Calculating overview statistics for date: {}", date);
-            //     calc_overview(mongo_client.clone(), &date).await;
-            // }
+            for i in 0..20 {
+                let date = date - chrono::Duration::days(i);
+                info!("Calculating user statistics for date: {}", date);
+                calc_user(&mongo_client, &date).await;
+                info!("Calculating overview statistics for date: {}", date);
+                calc_overview(&mongo_client, &date).await;
+            }
 
             calc_user(&mongo_client, &date).await;
             calc_overview(&mongo_client, &date).await;

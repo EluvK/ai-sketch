@@ -26,16 +26,17 @@ pub struct Statistic {
 pub enum StatisticContent {
     Overview(OverviewStatistic),
     DailyNumbers(DailyStatistic),
+    // todo 需要新的统计类型
 }
 
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
 pub struct OverviewStatistic {
-    pub user_summary: i64,
     pub user_active_weekly: i64,
-    pub token_usage_summary: i64,
+    pub user_summary: i64,
     pub token_usage_weekly: i64,
-    pub amount_summary: i64,
+    pub token_usage_monthly: i64,
     pub amount_weekly: i64,
+    pub amount_monthly: i64,
 }
 
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
@@ -92,7 +93,7 @@ impl StatisticsRepository for MongoClient {
         date_range: (NaiveDate, NaiveDate),
     ) -> anyhow::Result<Vec<Statistic>> {
         let collection = self.collection::<Statistic>(ADMIN_STATISTICS_COLLECTION_NAME);
-        let filter = doc! { "type": to_bson(&r#type)?, "date": { "$gte": to_bson(&date_range.0)?, "$lte": to_bson(&date_range.1)? } };
+        let filter = doc! { "type": to_bson(&r#type)?, "date": { GTE_OP: to_bson(&date_range.0)?, LTE_OP: to_bson(&date_range.1)? } };
         let cursor = collection.find(filter).await?;
         let result: Vec<Statistic> = cursor.try_collect().await?;
         Ok(result)
