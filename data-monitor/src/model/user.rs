@@ -12,7 +12,7 @@ pub struct User {
     pub id: String,
     pub name: String,
     pub created_at: bson::DateTime,
-    pub last_login_at: bson::DateTime,
+    pub last_login: bson::DateTime,
 }
 
 #[async_trait]
@@ -49,7 +49,7 @@ impl UserRepository for MongoClient {
         let collection = self.collection::<User>(USER_COLLECTION_NAME);
         let filter = bson::doc! { "_id": user.id.clone() };
         let update =
-            bson::doc! { SET_OP: { "name": user.name, "last_login_at": user.last_login_at } };
+            bson::doc! { SET_OP: { "name": user.name, "last_login": user.last_login } };
         collection.update_one(filter, update).await?;
         Ok(())
     }

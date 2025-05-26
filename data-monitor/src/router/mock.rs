@@ -16,12 +16,12 @@ async fn create_user(depot: &mut Depot) -> ServiceResult<()> {
     let days_ago: i64 = rand::random_range(1..=20);
     let created_at = chrono::Utc::now() - chrono::Duration::days(days_ago);
     let last_login_offset = rand::random_range(1..=days_ago);
-    let last_login_at = created_at + chrono::Duration::days(last_login_offset);
+    let last_login = created_at + chrono::Duration::days(last_login_offset);
     let new_user = User {
         id: uuid::Uuid::new_v4().to_string(),
         name: format!("user_{}", rand::random::<u32>()),
         created_at: bson::DateTime::from_chrono(created_at),
-        last_login_at: bson::DateTime::from_chrono(last_login_at),
+        last_login: bson::DateTime::from_chrono(last_login),
     };
     state.mongo_client.create_user(new_user).await?;
     Ok(())

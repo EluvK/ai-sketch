@@ -30,7 +30,7 @@ pub async fn calculate_user_statistics(
     // 活跃用户数（当天登录过的用户）
     let active_users = collection
         .count_documents(doc! {
-            "last_login_at": { GTE_OP: &start, LTE_OP: &end }
+            "last_login": { GTE_OP: &start, LTE_OP: &end }
         })
         .await?;
 

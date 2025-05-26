@@ -45,7 +45,7 @@ async fn get_daily(req: &mut Request, depot: &mut Depot) -> ServiceResult<DailyS
     );
     let state = depot.obtain::<AppDataRef>()?;
     let now_date = chrono::Utc::now().date_naive();
-    let daily_user = state
+    let mut daily_user = state
         .mongo_client
         .get_by_range(
             body.r#type,
@@ -56,6 +56,7 @@ async fn get_daily(req: &mut Request, depot: &mut Depot) -> ServiceResult<DailyS
             ),
         )
         .await?;
+    daily_user.sort_by(|a, b| a.date.cmp(&b.date));
     Ok(daily_user.try_into()?)
 }
 

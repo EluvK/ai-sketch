@@ -12,7 +12,7 @@ pub async fn calculate_overview_statistics(
     date: &NaiveDate,
 ) -> anyhow::Result<Statistic> {
     let st7 = date_to_bson_range(&(*date - chrono::Duration::days(7)))?.0;
-    let st30 = date_to_bson_range(&(*date - chrono::Duration::days(30)))?.1;
+    let st30 = date_to_bson_range(&(*date - chrono::Duration::days(30)))?.0;
     let ed = date_to_bson_range(date)?.1;
 
     // user
@@ -23,7 +23,7 @@ pub async fn calculate_overview_statistics(
         .await? as i64;
     let user_active_weekly = user_collection
         .count_documents(doc! {
-            "last_login_at": {
+            "last_login": {
                 GTE_OP: st7,
                 LTE_OP: ed
             }
