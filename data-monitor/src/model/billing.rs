@@ -7,6 +7,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::model::constant::*;
 
+// the consumption record is not very useful here
+// main purpose is to record the recharge records
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct BillingRecord {
     pub record_id: String,
@@ -21,7 +23,7 @@ pub struct BillingRecord {
 #[serde(rename_all = "lowercase")]
 pub enum RecordType {
     Recharge,
-    Consumption,
+    Consumption, // not very useful here.
 }
 
 pub async fn create_index(client: &MongoClient) -> anyhow::Result<()> {

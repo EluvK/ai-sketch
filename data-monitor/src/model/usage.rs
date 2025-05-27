@@ -2,7 +2,7 @@ use ai_flow_synth::utils::MongoClient;
 use async_trait::async_trait;
 use bson::{DateTime, doc};
 use futures_util::TryStreamExt;
-use mongodb::{IndexModel, options::UpdateOptions};
+use mongodb::IndexModel;
 use serde::{Deserialize, Serialize};
 
 use crate::model::constant::*;
@@ -14,6 +14,7 @@ pub struct UsageRecord {
     pub llm_model: String,
     pub token_cost: f64, //?why f64
     pub usage_date: DateTime,
+    pub price: f64, // per Million tokens
 }
 
 pub async fn create_index(client: &MongoClient) -> anyhow::Result<()> {
@@ -30,45 +31,32 @@ pub async fn create_index(client: &MongoClient) -> anyhow::Result<()> {
 
 #[async_trait]
 pub trait UsageRecordRepository {
-    async fn save_usage_record(&self, record: UsageRecord) -> anyhow::Result<Option<UsageRecord>>;
-    async fn get_usage_records_by_user_id(
-        &self,
-        record: UsageRecord,
-        date_range: Option<(DateTime, DateTime)>,
-    ) -> anyhow::Result<Vec<UsageRecord>>;
+    async fn save_usage_record(&self, record: UsageRecord) -> anyhow::Result<()>;
+
     async fn get_usage_records_by_date_range(
         &self,
         date_range: (DateTime, DateTime),
     ) -> anyhow::Result<Vec<UsageRecord>>;
+
+    async fn fold_usage_records_by_date_range<T, F>(
+        &self,
+        date_range: (DateTime, DateTime),
+        init: T,
+        mut f: F,
+    ) -> anyhow::Result<T>
+    where
+        T: Send + Sync,
+        F: Send + Sync + FnMut(T, UsageRecord) -> T;
 }
 
 #[async_trait]
 impl UsageRecordRepository for MongoClient {
-    async fn save_usage_record(&self, record: UsageRecord) -> anyhow::Result<Option<UsageRecord>> {
+    async fn save_usage_record(&self, record: UsageRecord) -> anyhow::Result<()> {
         let collection = self.collection::<UsageRecord>(USAGE_RECORD_COLLECTION_NAME);
-        let filter = bson::doc! { "user_id": record.user_id.clone(), "provider": record.provider.clone(), "llm_model": record.llm_model.clone(), "usage_date": record.usage_date };
-        let update = bson::doc! { SET_OP: { "token_cost": record.token_cost } };
-        let options = UpdateOptions::builder().upsert(true).build();
-        collection
-            .update_one(filter, update)
-            .with_options(options)
-            .await?;
-        Ok(Some(record))
+        collection.insert_one(record).await?;
+        Ok(())
     }
-    async fn get_usage_records_by_user_id(
-        &self,
-        record: UsageRecord,
-        date_range: Option<(DateTime, DateTime)>,
-    ) -> anyhow::Result<Vec<UsageRecord>> {
-        let collection = self.collection::<UsageRecord>(USAGE_RECORD_COLLECTION_NAME);
-        let mut filter = bson::doc! { "user_id": record.user_id.clone(), "provider": record.provider.clone(), "llm_model": record.llm_model.clone() };
-        if let Some((start_date, end_date)) = date_range {
-            filter.insert("usage_date", doc! { GTE_OP: start_date, LTE_OP: end_date });
-        }
-        let cursor = collection.find(filter).await?;
-        let records: Vec<UsageRecord> = cursor.try_collect().await?;
-        Ok(records)
-    }
+
     async fn get_usage_records_by_date_range(
         &self,
         date_range: (DateTime, DateTime),
@@ -77,7 +65,28 @@ impl UsageRecordRepository for MongoClient {
         let filter =
             bson::doc! { "usage_date": doc! { GTE_OP: date_range.0, LTE_OP: date_range.1 } };
         let cursor = collection.find(filter).await?;
-        let records: Vec<UsageRecord> = cursor.try_collect().await?;
+        let records = cursor.try_collect().await?;
         Ok(records)
+    }
+    async fn fold_usage_records_by_date_range<T, F>(
+        &self,
+        date_range: (DateTime, DateTime),
+        init: T,
+        mut f: F,
+    ) -> anyhow::Result<T>
+    where
+        T: Send + Sync,
+        F: Send + Sync + FnMut(T, UsageRecord) -> T,
+    {
+        let collection = self.collection::<UsageRecord>(USAGE_RECORD_COLLECTION_NAME);
+        let filter =
+            bson::doc! { "usage_date": doc! { GTE_OP: date_range.0, LTE_OP: date_range.1 } };
+        let cursor = collection.find(filter).await?;
+        let result = cursor
+            .try_fold(init, |acc, record| {
+                futures::future::ready(Ok(f(acc, record)))
+            })
+            .await?;
+        Ok(result)
     }
 }

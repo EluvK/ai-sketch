@@ -31,16 +31,40 @@ pub async fn calculate_overview_statistics(
         .await? as i64;
 
     // token usage
-    let token_usage_weekly = mongo_client
-        .get_usage_records_by_date_range((st7, ed))
-        .await?
-        .into_iter()
-        .fold(0.0, |acc, record| acc + record.token_cost);
-    let token_usage_monthly = mongo_client
-        .get_usage_records_by_date_range((st30, ed))
-        .await?
-        .into_iter()
-        .fold(0.0, |acc, record| acc + record.token_cost);
+    // let token_usage_weekly = mongo_client
+    //     .get_usage_records_by_date_range((st7, ed))
+    //     .await?
+    //     .into_iter()
+    //     .fold(0.0, |acc, record| acc + record.token_cost);
+    // let token_usage_monthly = mongo_client
+    //     .get_usage_records_by_date_range((st30, ed))
+    //     .await?
+    //     .into_iter()
+    //     .fold(0.0, |acc, record| acc + record.token_cost);
+    let (token_usage_weekly, cost_usage_weekly) = mongo_client
+        .fold_usage_records_by_date_range(
+            (st7, ed),
+            (0.0, 0.0),
+            |(token_usage, cost_usage), usage_record| {
+                (
+                    token_usage + usage_record.token_cost,
+                    cost_usage + usage_record.price * usage_record.token_cost / 1_000_000.0,
+                )
+            },
+        )
+        .await?;
+    let (token_usage_monthly, cost_usage_monthly) = mongo_client
+        .fold_usage_records_by_date_range(
+            (st30, ed),
+            (0.0, 0.0),
+            |(token_usage, cost_usage), usage_record| {
+                (
+                    token_usage + usage_record.token_cost,
+                    cost_usage + usage_record.price * usage_record.token_cost / 1_000_000.0,
+                )
+            },
+        )
+        .await?;
 
     // billing
     let amount_monthly = mongo_client

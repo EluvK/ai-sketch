@@ -10,6 +10,7 @@ anyhow = { workspace = true }
 async-trait = { workspace = true }
 bson = { version = "2.14.0", features = ["chrono-0_4"] }
 chrono = { version = "0.4.41", features = ["serde"] }
+futures = "0.3.31"
 futures-util = "0.3.31"
 mongodb = { workspace = true }
 rand = "0.9.1"
