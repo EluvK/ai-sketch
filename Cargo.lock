@@ -479,6 +479,7 @@ dependencies = [
  "async-trait",
  "bson",
  "chrono",
+ "futures",
  "futures-util",
  "mongodb",
  "rand 0.9.1",
