@@ -20,24 +20,17 @@ pub trait LLMProvider {
 mod tests {
     use futures::StreamExt;
 
-    use crate::llm::model::ChatMessageRole;
+    use crate::{llm::model::ChatMessageRole, utils::LogConfig};
 
     #[allow(unused_imports)]
     use super::*;
 
     #[tokio::test]
     async fn test_llm_deepseek() {
-        let client = deepseek::DeepSeekClient::new(
-            std::env::var("DEEPSEEK_API_KEY").expect("DEEPSEEK_API_KEY not set"),
-            "https://api.deepseek.com".to_string(),
-            "deepseek-chat".to_string(),
-        );
+        let log_config = LogConfig::default();
+        let _g = crate::utils::enable_log(&log_config).unwrap();
+        let client = deepseek::DeepSeekClient::default();
 
-        // let client = openai::OpenAIClient::new(
-        //     std::env::var("OPENAI_API_KEY").expect("OPENAI_API_KEY not set"),
-        //     "https://api.openai.com".to_string(),
-        //     "gpt-4o-mini".to_string(),
-        // );
         let messages = vec![
             ChatMessage {
                 content: "You are a helpful assistant.".to_string(),
@@ -45,6 +38,55 @@ mod tests {
             },
             ChatMessage {
                 content: "Hi, would you please tell me a joke in 20 words".to_string(),
+                role: ChatMessageRole::User,
+            },
+        ];
+        // let mut stream = client.chat_stream(&messages).await.unwrap();
+        let mut stream = client.chat_stream(&messages).await.unwrap();
+        while let Some(chunk) = stream.next().await {
+            match chunk {
+                Ok(chunk) => {
+                    println!("Received message: {:?}", chunk);
+                }
+                Err(err) => {
+                    eprintln!("Error: {:?}", err);
+                }
+            }
+        }
+    }
+
+    #[tokio::test]
+    async fn test_llm_function_call() {
+        let log_config = LogConfig::default();
+        let _g = crate::utils::enable_log(&log_config).unwrap();
+        let mut client = deepseek::DeepSeekClient::default();
+        // let mut client = openai::OpenAIClient::default();
+        client.add_tool(serde_json::json!({
+            "type": "function",
+            "function": {
+                "name": "get_weather",
+                "description": "Get weather of an location, the user should supply a location first",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "location": {
+                            "type": "string",
+                            "description": "The city and state, e.g. San Francisco, CA"
+                        }
+                    },
+                    "required": ["location"]
+                },
+            }
+        }));
+        let messages = vec![
+            ChatMessage {
+                content: "You are a helpful assistant.".to_string(),
+                role: ChatMessageRole::System,
+            },
+            ChatMessage {
+                content:
+                    "Hi, would you please tell me what the time is it now, and weather in HangZhou"
+                        .to_string(),
                 role: ChatMessageRole::User,
             },
         ];

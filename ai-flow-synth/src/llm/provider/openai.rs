@@ -7,7 +7,7 @@ use serde::Deserialize;
 
 use crate::llm::{
     error::{LLMError, LLMResult},
-    model::{ChatMessage, ChatMessageChunk, FinishReason},
+    model::{ChatMessage, ChatMessageChunk, ChatMessageDelta, ChatMessageRole, FinishReason},
 };
 
 use super::LLMProvider;
@@ -17,6 +17,7 @@ pub struct OpenAIClient {
     api_key: String,
     base_url: String,
     model: String,
+    tools: Vec<serde_json::Value>,
     // maybe other fields...
 }
 
@@ -28,7 +29,22 @@ impl OpenAIClient {
             api_key,
             base_url,
             model,
+            tools: Vec::new(),
         }
+    }
+
+    pub fn add_tool(&mut self, tool: serde_json::Value) {
+        self.tools.push(tool);
+    }
+}
+
+impl Default for OpenAIClient {
+    fn default() -> Self {
+        Self::new(
+            std::env::var("OPENAI_API_KEY").expect("OPENAI_API_KEY not set"),
+            "https://api.openai.com".to_string(),
+            "gpt-4o-mini".to_string(),
+        )
     }
 }
 
@@ -48,42 +64,37 @@ impl LLMProvider for OpenAIClient {
                     "model": self.model,
                     "messages": messages,
                     "stream": true,
+                    "tools": self.tools,
                 }
             ))
             .eventsource()?;
-        let stream = async_stream::stream! {
+        let stream = async_stream::stream!({
             let mut response = response;
             while let Some(event) = response.next().await {
-                match event {
-                    Ok(event) => {
-                        if let reqwest_eventsource::Event::Message(message) = event {
-                            let data = message.data;
-                            if data.trim() == "[DONE]" {
-                                break;
-                            }
-                            match serde_json::from_str::<OpenAIChunkResp>(&data) {
-                                Ok(chunk) => {
-                                    yield Ok(chunk.into());
-                                }
-                                Err(err) => {
-                                    yield Err(LLMError::from(err));
-                                }
-                            }
+                let event = event
+                    .map_err(|err| LLMError::LLMProvider(format!("OpenAI API error: {}", err)))?;
+                let chunk: ChatMessageChunk = match event {
+                    reqwest_eventsource::Event::Open => {
+                        continue; // Open event, we can ignore it
+                    }
+                    reqwest_eventsource::Event::Message(event) => {
+                        let data = event.data;
+                        tracing::info!("Receive OpenAI API chunk: {}", data);
+                        if data.trim() == "[DONE]" {
+                            tracing::info!("OpenAI API stream DONE");
+                            break;
+                        } else if let Ok(chunk) = serde_json::from_str::<OpenAIChunkResp>(&data) {
+                            chunk.into()
+                        } else {
+                            tracing::error!("OpenAI API response is not valid JSON: {}", data);
+                            continue; // Skip this chunk
                         }
                     }
-                    Err(reqwest_eventsource::Error::StreamEnded) => {
-                        break;
-                    }
-                    // maybe handle other errors here like 401?
-                    Err(err) => {
-                        yield Err(LLMError::LLMProvider(format!(
-                            "DeepSeek API error: {}",
-                            err
-                        )));
-                    }
-                }
+                };
+                tracing::info!("Yielding chunk: {:?}", chunk);
+                yield Ok(chunk);
             }
-        };
+        });
         Ok(Box::pin(stream))
     }
 }
@@ -107,17 +118,52 @@ struct OpenAIChunkChoice {
 
 #[derive(Debug, Clone, Deserialize)]
 struct OpenAIChunkDelta {
-    content: Option<String>,
+    content: Option<String>, // tool_call场景可能是 None
+    role: Option<ChatMessageRole>,
+    tool_calls: Option<Vec<OpenAIToolCall>>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+struct OpenAIToolCall {
+    id: Option<String>, // 后续可能是 None
+    index: i64,
+    // r#type: Option<String>, // 目前一定是"function", 不重要了
+    function: OpenAIToolFunction,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+struct OpenAIToolFunction {
+    name: Option<String>,      // 后续可能是 None
+    arguments: Option<String>, // 可能是 None
 }
 
 impl From<OpenAIChunkResp> for ChatMessageChunk {
-    fn from(chunk: OpenAIChunkResp) -> Self {
+    fn from(resp: OpenAIChunkResp) -> Self {
+        let delta = match (
+            &resp.choices[0].delta.content,
+            &resp.choices[0].delta.tool_calls,
+        ) {
+            (Some(content), _) => ChatMessageDelta::Content(content.to_owned()),
+            (_, Some(tool_calls)) => {
+                match tool_calls
+                    .iter()
+                    .next()
+                    .map(|tool_call| (&tool_call.function.name, &tool_call.function.arguments))
+                {
+                    Some((Some(name), _)) => ChatMessageDelta::ToolCallsFunc(name.to_owned()),
+                    Some((_, Some(args))) => ChatMessageDelta::ToolCallsArgs(args.to_owned()),
+                    _ => ChatMessageDelta::Content(String::new()),
+                }
+            }
+            _ => ChatMessageDelta::Content(String::new()),
+        };
         ChatMessageChunk {
-            id: chunk.id,
-            delta_content: chunk.choices[0].delta.content.clone().unwrap_or_default(),
-            created: chunk.created,
-            model: chunk.model,
-            finish_reason: chunk.finish_reason,
+            id: resp.id,
+            delta_content: resp.choices[0].delta.content.clone().unwrap_or_default(),
+            delta,
+            created: resp.created,
+            model: resp.model,
+            finish_reason: resp.finish_reason,
             total_tokens: None, // OpenAI does not provide total_tokens in the stream response
         }
     }

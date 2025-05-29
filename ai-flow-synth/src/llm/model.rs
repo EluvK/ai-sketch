@@ -33,6 +33,7 @@ pub struct ChatMessageResponse {
 pub struct ChatMessageChunk {
     pub id: String,
     pub delta_content: String, // usually a single token at choices[0].delta.content
+    pub delta: ChatMessageDelta,
     pub created: i64,
     pub model: String,
     pub finish_reason: Option<FinishReason>,
@@ -40,11 +41,20 @@ pub struct ChatMessageChunk {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "lowercase")]
+#[serde(rename_all = "snake_case")]
 pub enum FinishReason {
     Stop,
     Length,
     ContentFilter,
     ToolCalls,
+    InsufficientSystemResource,
     // User,
+}
+
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum ChatMessageDelta {
+    Content(String), // The content of the message
+    ToolCallsFunc(String), // Tool calls function in the message
+    ToolCallsArgs(String), // Tool calls in the message
 }

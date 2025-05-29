@@ -67,17 +67,9 @@ impl Node for WriterNode {
         let mut chat_stream = client.chat_stream(&messages).await?;
         let mut content = String::new();
         while let Some(chunk) = chat_stream.next().await {
-            match chunk {
-                Ok(chunk) => {
-                    // println!("Received chunk: {:?}", chunk);
-                    content.push_str(&chunk.delta_content);
-                    stream.send(StreamMessage::Delta(chunk.delta_content))?;
-                }
-                Err(err) => {
-                    eprintln!("Error: {:?}", err);
-                    return Err(anyhow::anyhow!("Error: {:?}", err));
-                }
-            }
+            let chunk = chunk?;
+            content.push_str(&chunk.delta_content);
+            stream.send(StreamMessage::Delta(chunk.delta_content.clone()))?;
         }
         println!("Received content: {}", content);
         context.set("draft", serde_json::Value::String(content.clone()));
@@ -142,17 +134,9 @@ impl Node for EditorNode {
         let mut chat_stream = client.chat_stream(&messages).await?;
         let mut content = String::new();
         while let Some(chunk) = chat_stream.next().await {
-            match chunk {
-                Ok(chunk) => {
-                    // println!("Received chunk: {:?}", chunk);
-                    content.push_str(&chunk.delta_content);
-                    stream.send(StreamMessage::Delta(chunk.delta_content))?;
-                }
-                Err(err) => {
-                    eprintln!("Error: {:?}", err);
-                    return Err(anyhow::anyhow!("Error: {:?}", err));
-                }
-            }
+            let chunk = chunk?;
+            content.push_str(&chunk.delta_content);
+            stream.send(StreamMessage::Delta(chunk.delta_content.clone()))?;
         }
         println!("Received content: {}", content);
         context.set("result", serde_json::Value::String(content.clone()));
