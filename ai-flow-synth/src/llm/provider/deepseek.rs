@@ -51,6 +51,10 @@ impl DeepSeekClient {
         self.tools.push(tool);
     }
 
+    pub fn add_tools(&mut self, tools: Vec<serde_json::Value>) {
+        self.tools.extend(tools);
+    }
+
     fn client_chat_stream(&self, message: &[ChatMessage]) -> LLMResult<EventSource> {
         let resp = self
             .client

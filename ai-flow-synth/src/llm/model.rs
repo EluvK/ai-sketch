@@ -12,6 +12,7 @@ pub enum ChatMessageRole {
     User,
     Assistant,
     System,
+    Tool, // tool calls result
 }
 
 // Represent the final response that will be returned && saved
@@ -32,7 +33,10 @@ pub struct ChatMessageResponse {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ChatMessageChunk {
     pub id: String,
+
+    //? to be deleted, use `delta` instead
     pub delta_content: String, // usually a single token at choices[0].delta.content
+
     pub delta: ChatMessageDelta,
     pub created: i64,
     pub model: String,
@@ -51,10 +55,9 @@ pub enum FinishReason {
     // User,
 }
 
-
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum ChatMessageDelta {
-    Content(String), // The content of the message
+    Content(String),       // The content of the message
     ToolCallsFunc(String), // Tool calls function in the message
     ToolCallsArgs(String), // Tool calls in the message
 }
