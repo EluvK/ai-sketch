@@ -10,7 +10,7 @@ pub struct MongoConfig {
 
 #[derive(Debug, Clone)]
 pub struct MongoClient {
-    client: Arc<Client>,
+    _client: Arc<Client>,
     db: Arc<Database>,
 }
 
@@ -20,7 +20,7 @@ impl MongoClient {
         let client = Client::with_options(options)?;
         let db = client.database(&config.db_name);
         Ok(MongoClient {
-            client: Arc::new(client),
+            _client: Arc::new(client),
             db: Arc::new(db),
         })
     }
@@ -70,6 +70,6 @@ mod tests {
         let collection = client.collection::<User>("users");
         let result = collection.find_one(doc! {}).await;
         assert!(result.is_ok());
-        dbg!(result);
+        dbg!(result.unwrap());
     }
 }

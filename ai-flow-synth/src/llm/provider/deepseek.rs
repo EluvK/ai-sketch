@@ -6,12 +6,10 @@ use futures::{Stream, StreamExt};
 use reqwest_eventsource::{EventSource, RequestBuilderExt};
 use serde::Deserialize;
 use tracing::instrument;
-// use tokio::io::{AsyncBufReadExt, BufReader};
-// use tokio_util::io::StreamReader;
 
 use crate::llm::{
     error::{LLMError, LLMResult},
-    model::{ChatMessage, ChatMessageDelta, ChatMessageRole, FinishReason},
+    model::{ChatMessage, ChatMessageDelta, ChatMessageRole, ChunkToolCall, FinishReason},
 };
 
 use super::{ChatMessageChunk, LLMProvider};
@@ -70,6 +68,27 @@ impl DeepSeekClient {
             ))
             .eventsource()?;
         Ok(resp)
+    }
+
+    async fn debug_chat(&self, messages: &[ChatMessage]) -> anyhow::Result<String> {
+        let resp = self
+            .client
+            .post(format!("{}/v1/chat/completions", self.base_url))
+            .bearer_auth(&self.api_key)
+            .json(&serde_json::json!(
+                {
+                    "model": self.model,
+                    "messages": messages,
+                    "stream": false,
+                    "tools": self.tools,
+                }
+            ))
+            .send()
+            .await?;
+        resp.text().await.map_err(|e| {
+            tracing::error!("Failed to get response text: {}", e);
+            e.into()
+        })
     }
 }
 
@@ -141,21 +160,8 @@ struct DeepSeekChoice {
 struct DeepSeekDelta {
     content: Option<String>, // tool_call场景可能是 None
     role: Option<ChatMessageRole>,
-    tool_calls: Option<Vec<DeepSeekToolCall>>,
-}
-
-#[derive(Debug, Clone, Deserialize)]
-struct DeepSeekToolCall {
-    id: Option<String>, // 后续可能是 None
-    index: i64,
-    // r#type: Option<String>, // 目前一定是"function", 不重要了
-    function: DeepSeekFunction,
-}
-
-#[derive(Debug, Clone, Deserialize)]
-struct DeepSeekFunction {
-    name: Option<String>,      // 后续可能是 None
-    arguments: Option<String>, // 可能是 None
+    #[serde(skip_serializing_if = "Option::is_none")]
+    tool_calls: Option<Vec<ChunkToolCall>>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -172,17 +178,13 @@ impl From<DeepSeekChunkResp> for ChatMessageChunk {
             &resp.choices[0].delta.tool_calls,
         ) {
             (Some(content), _) => ChatMessageDelta::Content(content.to_owned()),
-            (_, Some(tool_calls)) => {
-                match tool_calls
-                    .iter()
-                    .next()
-                    .map(|tool_call| (&tool_call.function.name, &tool_call.function.arguments))
-                {
-                    Some((Some(name), _)) => ChatMessageDelta::ToolCallsFunc(name.to_owned()),
-                    Some((_, Some(args))) => ChatMessageDelta::ToolCallsArgs(args.to_owned()),
-                    _ => ChatMessageDelta::Content(String::new()),
+            (_, Some(tool_calls)) => match tool_calls.iter().next() {
+                Some(tool_call) => ChatMessageDelta::ToolCalls(tool_call.clone()),
+                None => {
+                    tracing::warn!("No tool calls found in the response");
+                    ChatMessageDelta::Content(String::new())
                 }
-            }
+            },
             _ => ChatMessageDelta::Content(String::new()),
         };
         ChatMessageChunk {
@@ -194,5 +196,47 @@ impl From<DeepSeekChunkResp> for ChatMessageChunk {
             finish_reason: resp.choices[0].finish_reason.clone(),
             total_tokens: resp.usage.map(|u| u.total_tokens),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use serde::Serialize;
+
+    use crate::llm::tool::ToolRegistry;
+
+    #[allow(unused_imports)]
+    use super::*;
+
+    #[derive(Serialize, Deserialize, schemars::JsonSchema)]
+    pub struct GetWeatherParams {
+        pub location: String,
+    }
+
+    fn get_weather(params: GetWeatherParams) -> serde_json::Value {
+        serde_json::Value::String(format!("The weather in {} is sunny.", params.location))
+    }
+
+    #[tokio::test]
+    async fn test_client() {
+        let log_config = crate::utils::LogConfig::default();
+        let _g = crate::utils::enable_log(&log_config).unwrap();
+        let mut registry = ToolRegistry::new();
+        registry.register::<GetWeatherParams, _>("get_weather", "获取天气", get_weather);
+
+        let mut client = DeepSeekClient::default();
+        client.add_tools(registry.export_all_tools());
+        let messages = vec![
+            ChatMessage::system("You are a helpful assistant."),
+            ChatMessage::user(
+                "Hi, would you please tell me what the time is it now, and weather in HangZhou",
+            ),
+        ];
+
+        let resp = client
+            .debug_chat(&messages)
+            .await
+            .expect("Failed to get response from DeepSeek API");
+        tracing::info!("DeepSeek API response: {}", resp);
     }
 }

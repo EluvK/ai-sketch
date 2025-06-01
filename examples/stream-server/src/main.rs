@@ -58,6 +58,10 @@ async fn llm_chat(req: &mut Request, res: &mut Response) {
                     // tracing::info!("Delta: {:?}", delta);
                     Ok::<_, salvo::Error>(SseEvent::default().text(delta))
                 } // _ => Ok::<_, salvo::Error>(SseEvent::default().text("")),
+                StreamMessage::Procedure(proc) => {
+                    tracing::info!("Procedure: {:?}", proc);
+                    Ok::<_, salvo::Error>(SseEvent::default().text(proc))
+                }
             }
         }
         Err(e) => {

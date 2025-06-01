@@ -19,14 +19,20 @@ pub struct Context {
 pub static CONTEXT_RESULT: &str = "result";
 // pub static CONTEXT_ERROR: &str = "error";
 
-impl Context {
-    pub fn new() -> Self {
+impl Default for Context {
+    fn default() -> Self {
         let (tx, _rx) = broadcast::channel(100);
         Context {
             _id: uuid::Uuid::new_v4().to_string(),
             data: HashMap::new(),
             stream: tx,
         }
+    }
+}
+
+impl Context {
+    pub fn new() -> Self {
+        Context::default()
     }
 
     pub fn set(&mut self, key: &str, value: Value) {

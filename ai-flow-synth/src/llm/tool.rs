@@ -4,15 +4,14 @@ use std::collections::HashMap;
 
 pub type ToolFn = Box<dyn Fn(serde_json::Value) -> serde_json::Value + Send + Sync>;
 
+#[derive(Default)]
 pub struct ToolRegistry {
     pub map: HashMap<&'static str, (ToolFn, &'static str, serde_json::Value)>,
 }
 
 impl ToolRegistry {
     pub fn new() -> Self {
-        Self {
-            map: HashMap::new(),
-        }
+        Self::default()
     }
 
     pub fn register<T, F>(&mut self, name: &'static str, desc: &'static str, f: F)

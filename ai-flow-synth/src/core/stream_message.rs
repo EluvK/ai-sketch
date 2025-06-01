@@ -4,6 +4,9 @@ use serde::{Deserialize, Serialize};
 pub enum StreamMessage {
     #[serde(rename = "d")]
     Delta(String),
+
+    #[serde(rename = "p")]
+    Procedure(String),
 }
 
 #[cfg(test)]

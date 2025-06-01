@@ -32,7 +32,7 @@ impl<S: Status> Flow<S> {
     pub fn add_edge(&mut self, from: &str, condition: S, to: &str) {
         self.edges
             .entry(from.to_owned())
-            .or_insert_with(Vec::new)
+            .or_default()
             .push((condition, to.to_owned()));
     }
 

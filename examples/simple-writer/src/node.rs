@@ -6,7 +6,7 @@ use ai_flow_synth::{
         stream_message::StreamMessage,
     },
     llm::{
-        model::{ChatMessage, ChatMessageRole},
+        model::ChatMessage,
         provider::{self, LLMProvider},
     },
 };
@@ -48,21 +48,10 @@ impl Node for WriterNode {
         println!("prompt: {}", self.prompt);
         let stream = context.stream("writer_stream");
         println!("writing...");
-        let client = provider::deepseek::DeepSeekClient::new(
-            std::env::var("DEEPSEEK_API_KEY").expect("DEEPSEEK_API_KEY not set"),
-            "https://api.deepseek.com".to_string(),
-            "deepseek-chat".to_string(),
-        );
-
+        let client = provider::deepseek::DeepSeekClient::default();
         let messages = vec![
-            ChatMessage {
-                content: "You are a professional writer.".to_string(),
-                role: ChatMessageRole::System,
-            },
-            ChatMessage {
-                content: self.prompt.clone(),
-                role: ChatMessageRole::User,
-            },
+            ChatMessage::system("You are a professional writer."),
+            ChatMessage::user(self.prompt.clone()),
         ];
         let mut chat_stream = client.chat_stream(&messages).await?;
         let mut content = String::new();
@@ -112,23 +101,13 @@ impl Node for EditorNode {
         let content = content.as_str().unwrap_or("");
         println!("content: {}", content);
         println!("editing...");
-        let client = provider::deepseek::DeepSeekClient::new(
-            std::env::var("DEEPSEEK_API_KEY").expect("DEEPSEEK_API_KEY not set"),
-            "https://api.deepseek.com".to_string(),
-            "deepseek-chat".to_string(),
-        );
+        let client = provider::deepseek::DeepSeekClient::default();
         let messages = vec![
-            ChatMessage {
-                content: format!(
-                    "You are a professional editor. Find the mistakes in the text and correct them. {} return the result text ONLY.",
-                    self.prompt
-                ),
-                role: ChatMessageRole::System,
-            },
-            ChatMessage {
-                content: content.to_string(),
-                role: ChatMessageRole::User,
-            },
+            ChatMessage::system(format!(
+                "You are a professional editor. Find the mistakes in the text and correct them. {} return the result text ONLY.",
+                self.prompt
+            )),
+            ChatMessage::user(content.to_string()),
         ];
 
         let mut chat_stream = client.chat_stream(&messages).await?;

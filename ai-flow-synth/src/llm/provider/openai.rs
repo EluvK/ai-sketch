@@ -7,7 +7,10 @@ use serde::Deserialize;
 
 use crate::llm::{
     error::{LLMError, LLMResult},
-    model::{ChatMessage, ChatMessageChunk, ChatMessageDelta, ChatMessageRole, FinishReason},
+    model::{
+        ChatMessage, ChatMessageChunk, ChatMessageDelta, ChatMessageRole, ChunkToolCall,
+        FinishReason,
+    },
 };
 
 use super::LLMProvider;
@@ -120,21 +123,8 @@ struct OpenAIChunkChoice {
 struct OpenAIChunkDelta {
     content: Option<String>, // tool_call场景可能是 None
     role: Option<ChatMessageRole>,
-    tool_calls: Option<Vec<OpenAIToolCall>>,
-}
-
-#[derive(Debug, Clone, Deserialize)]
-struct OpenAIToolCall {
-    id: Option<String>, // 后续可能是 None
-    index: i64,
-    // r#type: Option<String>, // 目前一定是"function", 不重要了
-    function: OpenAIToolFunction,
-}
-
-#[derive(Debug, Clone, Deserialize)]
-struct OpenAIToolFunction {
-    name: Option<String>,      // 后续可能是 None
-    arguments: Option<String>, // 可能是 None
+    #[serde(skip_serializing_if = "Option::is_none")]
+    tool_calls: Option<Vec<ChunkToolCall>>,
 }
 
 impl From<OpenAIChunkResp> for ChatMessageChunk {
@@ -144,17 +134,13 @@ impl From<OpenAIChunkResp> for ChatMessageChunk {
             &resp.choices[0].delta.tool_calls,
         ) {
             (Some(content), _) => ChatMessageDelta::Content(content.to_owned()),
-            (_, Some(tool_calls)) => {
-                match tool_calls
-                    .iter()
-                    .next()
-                    .map(|tool_call| (&tool_call.function.name, &tool_call.function.arguments))
-                {
-                    Some((Some(name), _)) => ChatMessageDelta::ToolCallsFunc(name.to_owned()),
-                    Some((_, Some(args))) => ChatMessageDelta::ToolCallsArgs(args.to_owned()),
-                    _ => ChatMessageDelta::Content(String::new()),
+            (_, Some(tool_calls)) => match tool_calls.iter().next() {
+                Some(tool_call) => ChatMessageDelta::ToolCalls(tool_call.clone()),
+                None => {
+                    tracing::warn!("No tool calls found in the response");
+                    ChatMessageDelta::Content(String::new())
                 }
-            }
+            },
             _ => ChatMessageDelta::Content(String::new()),
         };
         ChatMessageChunk {
