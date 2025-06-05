@@ -1,0 +1,29 @@
+[package]
+name = "paper-backend"
+version = "0.1.0"
+edition = "2024"
+authors = ["eluvk.dev@gmail.com"]
+
+[dependencies]
+ai-flow-synth = { path = "../ai-flow-synth" }
+anyhow = { workspace = true }
+async-trait = { workspace = true }
+bson = { workspace = true }
+chrono = { workspace = true }
+futures = { workspace = true }
+futures-util = { workspace = true }
+jsonwebtoken = "9.3.1"
+mongodb = { workspace = true }
+salvo = { version = "0.78", features = [
+    "affix-state",
+    "anyhow",
+    "cors",
+    "jwt-auth",
+] }
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+tokio = { workspace = true }
+toml = { workspace = true }
+tracing = { workspace = true }
+uuid = { workspace = true }

@@ -8,10 +8,10 @@ authors = ["eluvk.dev@gmail.com"]
 ai-flow-synth = { path = "../ai-flow-synth" }
 anyhow = { workspace = true }
 async-trait = { workspace = true }
-bson = { version = "2.14.0", features = ["chrono-0_4"] }
-chrono = { version = "0.4.41", features = ["serde"] }
-futures = "0.3.31"
-futures-util = "0.3.31"
+bson = { workspace = true }
+chrono = { workspace = true }
+futures = { workspace = true }
+futures-util = { workspace = true }
 mongodb = { workspace = true }
 rand = "0.9.1"
 salvo = { version = "0.78", features = ["affix-state", "anyhow", "cors"] }
@@ -19,6 +19,6 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 thiserror = { workspace = true }
 tokio = { workspace = true }
-toml = { version = "0.8.22" }
+toml = { workspace = true }
 tracing = { workspace = true }
-uuid = { version = "1.16.0", features = ["v4"] }
+uuid = { workspace = true }

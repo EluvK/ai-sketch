@@ -1,0 +1,19 @@
+# Frontend configuration
+[frontend_config]
+cors = ["http://localhost:5666", "http://127.0.0.1:5666"]
+
+# Backend configuration
+[backend_config]
+address = "127.0.0.1:7878"
+jwt_secret = "your_jwt_secret"
+jwt_expiration = 3600          # in seconds
+
+# Logging configuration
+[log_config]
+enable_debug = false
+prefix = "paper-backend"
+
+# MongoDB configuration
+[mongo_config]
+uri = "mongodb://localhost:27017"
+db_name = "paper"
