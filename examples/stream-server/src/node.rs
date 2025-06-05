@@ -3,17 +3,16 @@ use ai_flow_synth::{
         context::Context,
         node::{Node, NodeResult},
         status::Status,
-        stream_message::StreamMessage,
     },
     llm::{
+        chat,
         model::ChatMessage,
-        provider::{self, LLMProvider},
+        provider::{self},
+        tool::ToolRegistry,
     },
 };
 use anyhow::Result;
 use serde_json::Value;
-
-use tokio_stream::StreamExt;
 
 #[derive(Debug, Clone, Default, PartialEq)]
 pub enum JobStatus {
@@ -53,15 +52,10 @@ impl Node for WriterNode {
             ChatMessage::system("You are a professional writer."),
             ChatMessage::user(self.prompt.clone()),
         ];
-        let mut chat_stream = client.chat_stream(&messages).await?;
-        let mut content = String::new();
-        while let Some(chunk) = chat_stream.next().await {
-            let chunk = chunk?;
-            content.push_str(&chunk.delta_content);
-            stream.send(StreamMessage::Delta(chunk.delta_content))?;
-        }
-        println!("Received content: {}", content);
-        context.set("draft", serde_json::Value::String(content.clone()));
+        let registry = ToolRegistry::default();
+        let result = chat(messages, stream, &client, &registry).await?;
+        println!("Chat result: {}", result);
+        context.set("draft", serde_json::Value::String(result));
 
         Ok(serde_json::json!({ "status": "write" }))
     }
@@ -101,7 +95,7 @@ impl Node for EditorNode {
         let content = content.as_str().unwrap_or("");
         println!("content: {}", content);
         println!("editing...");
-        
+
         let client = provider::deepseek::DeepSeekClient::default();
         let messages = vec![
             ChatMessage::system(format!(
@@ -110,16 +104,10 @@ impl Node for EditorNode {
             )),
             ChatMessage::user(content.to_string()),
         ];
-
-        let mut chat_stream = client.chat_stream(&messages).await?;
-        let mut content = String::new();
-        while let Some(chunk) = chat_stream.next().await {
-            let chunk = chunk?;
-            content.push_str(&chunk.delta_content);
-            stream.send(StreamMessage::Delta(chunk.delta_content))?;
-        }
-        println!("Received content: {}", content);
-        context.set("result", serde_json::Value::String(content.clone()));
+        let registry = ToolRegistry::default();
+        let result = chat(messages, stream, &client, &registry).await?;
+        println!("Chat result: {}", result);
+        context.set("result", serde_json::Value::String(result));
 
         Ok(serde_json::json!({ "status": "editor" }))
     }
