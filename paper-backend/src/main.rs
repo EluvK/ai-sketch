@@ -10,7 +10,7 @@ use salvo::{http::Method, prelude::*};
 // use timed_task::register_timed_task;
 use tracing::info;
 
-use crate::utils::jwt::set_jwt_secret;
+use crate::utils::jwt::set_jwt_config;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -19,7 +19,7 @@ async fn main() -> anyhow::Result<()> {
     let config = config::Config::from_path(opt.get(1).unwrap_or(&"config.toml".into()))
         .expect("Failed to load config");
     let _g = ai_flow_synth::utils::enable_log(&config.log_config).unwrap();
-    set_jwt_secret(config.backend_config.jwt_secret.clone());
+    set_jwt_config(&config.backend_config.jwt);
     let app_data = app_data::AppData::new(&config).await;
 
     // register_timed_task(app_data.clone()).await;
@@ -37,7 +37,7 @@ async fn main() -> anyhow::Result<()> {
         .allow_headers("authorization")
         .into_handler();
 
-    let router = Router::new()
+    let router = Router::with_path("api")
         .hoop(affix_state::inject(app_data))
         .push(router::create_router(&config.backend_config));
     let service = Service::new(router).hoop(cors);

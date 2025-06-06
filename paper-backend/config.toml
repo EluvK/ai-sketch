@@ -1,12 +1,21 @@
 # Frontend configuration
 [frontend_config]
-cors = ["http://localhost:5666", "http://127.0.0.1:5666"]
+cors = [
+    "http://localhost:5666",
+    "http://127.0.0.1:5666",
+    "http://localhost:5668",
+    "http://127.0.0.1:5668",
+]
 
 # Backend configuration
 [backend_config]
 address = "127.0.0.1:7878"
-jwt_secret = "your_jwt_secret"
-jwt_expiration = 3600          # in seconds
+# JWT configuration
+[backend_config.jwt]
+access_secret = "your_jwt_secret"
+refresh_secret = "your_jwt_refresh_secret"
+# access_expiration = 3600
+# refresh_expiration = 604800
 
 # Logging configuration
 [log_config]

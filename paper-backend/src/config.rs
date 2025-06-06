@@ -27,6 +27,13 @@ pub struct FrontendConfig {
 #[derive(Debug, Deserialize)]
 pub struct BackendConfig {
     pub address: String,
-    pub jwt_secret: String,
-    pub jwt_expiration: i64, // in seconds
+    pub jwt: Jwt,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct Jwt {
+    pub access_secret: String,
+    pub refresh_secret: String,
+    // pub access_expiration: Option<i64>, // in seconds
+    // pub refresh_expiration: Option<i64>, // in seconds
 }
