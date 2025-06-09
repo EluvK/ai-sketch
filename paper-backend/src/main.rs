@@ -37,9 +37,17 @@ async fn main() -> anyhow::Result<()> {
         .allow_headers("authorization")
         .into_handler();
 
-    let router = Router::with_path("api")
-        .hoop(affix_state::inject(app_data))
-        .push(router::create_router(&config.backend_config));
+    let router = Router::new().push(
+        Router::with_path("api")
+            .hoop(affix_state::inject(app_data))
+            .push(router::create_router(&config.backend_config)),
+    );
+    let doc = OpenApi::new("Paper Api", "0.0.1").merge_router(&router);
+
+    let router = router
+        .unshift(doc.into_router("/api-doc/openapi.json"))
+        .unshift(SwaggerUi::new("/api-doc/openapi.json").into_router("/swagger-ui"));
+
     let service = Service::new(router).hoop(cors);
 
     let acceptor = TcpListener::new(&config.backend_config.address)

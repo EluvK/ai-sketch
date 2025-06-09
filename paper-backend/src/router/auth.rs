@@ -1,11 +1,12 @@
 use salvo::{
     Depot, Request, Response, Router, Scribe, Writer, handler,
     http::cookie::{CookieBuilder, SameSite, time::Duration},
-    macros::Extractible,
+    oapi::{EndpointArgRegister, ToResponse, ToSchema, endpoint, extract::*},
     writing::Json,
 };
 use serde::{Deserialize, Serialize};
 use tracing::info;
+use validator::Validate;
 
 use crate::{
     app_data::AppDataRef,
@@ -25,12 +26,28 @@ pub fn create_non_auth_router() -> Router {
         .push(Router::with_path("refresh").post(refresh))
 }
 
-#[handler]
+/// Phone Login
+///
+/// Authenticates a user using their phone number.
+#[endpoint(
+    tags("auth"),
+    status_codes(200, 201, 400),
+    request_body(content = PhoneLogin, description = "login/register by phone"),
+    responses(
+        (status_code = 200, body = LoginResponse, description = "Successful login"),
+        (status_code = 201, body = LoginResponse, description = "User created and logged in"),
+        (status_code = 400, description = "Bad Request: Validation error")
+    )
+)]
 async fn phone_login(
-    login: PhoneLogin,
+    login: JsonBody<PhoneLogin>,
     depot: &mut Depot,
     resp: &mut Response,
 ) -> ServiceResult<LoginResponse> {
+    // todo better validation
+    login
+        .validate()
+        .map_err(|e| ServiceError::BadRequest(format!("Manually validation error: {}", e)))?;
     let state = depot.obtain::<AppDataRef>()?;
     let exist_user = state.mongo_client.get_user_by_phone(&login.phone).await?;
     let user_id = match exist_user {
@@ -42,7 +59,7 @@ async fn phone_login(
         }
         None => {
             tracing::info!("create new user found with phone: {}", login.phone);
-            let new_user = User::new_by_phone(login.phone);
+            let new_user = User::new_by_phone(login.phone.clone());
             let user_id = new_user.uid.clone();
             state.mongo_client.create_user(new_user).await?;
             resp.status_code(salvo::http::StatusCode::CREATED);
@@ -112,16 +129,23 @@ async fn edit(req: &mut Request, depot: &mut Depot, resp: &mut Response) -> Serv
     Ok(())
 }
 
-#[derive(Serialize, Deserialize, Extractible)]
-#[salvo(extract(default_source(from = "body")))]
+/// Phone Login Request Body
+#[derive(Serialize, Deserialize, ToSchema, Validate)]
 struct PhoneLogin {
+    #[validate(length(equal = 11))]
+    #[salvo(schema(max_length = 11, min_length = 11, example = "139xxxx1234"))]
     phone: String,
+    #[validate(length(equal = 6))]
+    #[salvo(schema(max_length = 6, min_length = 6, example = "123456"))]
     code: String,
 }
 
-#[derive(Serialize, Deserialize)]
+/// Login Response Body
+#[derive(Serialize, Deserialize, ToResponse, ToSchema)]
 struct LoginResponse {
+    #[salvo(schema(example = "jwt.token.here"))]
     access_token: String,
+    #[salvo(schema(example = "user-uuid"))]
     user_id: String,
 }
 

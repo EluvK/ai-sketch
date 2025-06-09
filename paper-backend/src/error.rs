@@ -1,6 +1,10 @@
 use std::any::Any;
 
-use salvo::{Scribe, http::StatusCode};
+use salvo::{
+    Scribe,
+    http::{StatusCode, StatusError},
+    oapi::{self, EndpointOutRegister, ToSchema},
+};
 
 #[derive(Debug, thiserror::Error)]
 pub enum ServiceError {
@@ -62,6 +66,31 @@ impl Scribe for ServiceError {
                 res.render(format!("JWT error: {}", err));
             }
         }
+    }
+}
+
+impl EndpointOutRegister for ServiceError {
+    fn register(components: &mut oapi::Components, operation: &mut oapi::Operation) {
+        operation.responses.insert(
+            StatusCode::BAD_REQUEST.as_str(),
+            oapi::Response::new("Bad request")
+                .add_content("application/json", StatusError::to_schema(components)),
+        );
+        operation.responses.insert(
+            StatusCode::UNAUTHORIZED.as_str(),
+            oapi::Response::new("Unauthorized")
+                .add_content("application/json", StatusError::to_schema(components)),
+        );
+        operation.responses.insert(
+            StatusCode::NOT_FOUND.as_str(),
+            oapi::Response::new("Not found")
+                .add_content("application/json", StatusError::to_schema(components)),
+        );
+        operation.responses.insert(
+            StatusCode::INTERNAL_SERVER_ERROR.as_str(),
+            oapi::Response::new("Internal server error")
+                .add_content("application/json", StatusError::to_schema(components)),
+        );
     }
 }
 
