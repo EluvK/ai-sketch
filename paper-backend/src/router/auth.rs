@@ -1,7 +1,7 @@
 use salvo::{
     Depot, Request, Response, Router, Scribe, Writer, handler,
     http::cookie::{CookieBuilder, SameSite, time::Duration},
-    oapi::{EndpointArgRegister, ToResponse, ToSchema, endpoint, extract::*},
+    oapi::{ToResponse, ToSchema, endpoint, extract::*},
     writing::Json,
 };
 use serde::{Deserialize, Serialize};
@@ -31,19 +31,20 @@ pub fn create_non_auth_router() -> Router {
 /// Authenticates a user using their phone number.
 #[endpoint(
     tags("auth"),
-    status_codes(200, 201, 400),
+    status_codes(200, 201, 400, 401),
     request_body(content = PhoneLogin, description = "login/register by phone"),
     responses(
-        (status_code = 200, body = LoginResponse, description = "Successful login"),
-        (status_code = 201, body = LoginResponse, description = "User created and logged in"),
-        (status_code = 400, description = "Bad Request: Validation error")
+        (status_code = 200, body = LoginResult, description = "Successful login"),
+        (status_code = 201, body = LoginResult, description = "User created and logged in"),
+        (status_code = 400, description = "Bad Request: Validation error"),
+        (status_code = 401, description = "Unauthorized: Invalid phone number or code")
     )
 )]
 async fn phone_login(
     login: JsonBody<PhoneLogin>,
     depot: &mut Depot,
     resp: &mut Response,
-) -> ServiceResult<LoginResponse> {
+) -> ServiceResult<LoginResult> {
     // todo better validation
     login
         .validate()
@@ -78,14 +79,21 @@ async fn phone_login(
             .build(),
     );
 
-    Ok(LoginResponse {
+    Ok(LoginResult {
         access_token,
         user_id,
     })
 }
 
-#[handler]
-async fn refresh(req: &mut Request, resp: &mut Response) -> ServiceResult<LoginResponse> {
+#[endpoint(
+    tags("auth"),
+    status_codes(200, 401),
+    responses(
+        (status_code = 200, body = LoginResult, description = "Token refreshed successfully"),
+        (status_code = 401, description = "Unauthorized: Refresh token not found or invalid")
+    )
+)]
+async fn refresh(req: &mut Request, resp: &mut Response) -> ServiceResult<LoginResult> {
     let refresh_token = req
         .cookies()
         .get("refresh_token")
@@ -106,7 +114,7 @@ async fn refresh(req: &mut Request, resp: &mut Response) -> ServiceResult<LoginR
             .build(),
     );
 
-    Ok(LoginResponse {
+    Ok(LoginResult {
         access_token,
         user_id: user_id.clone(),
     })
@@ -131,6 +139,7 @@ async fn edit(req: &mut Request, depot: &mut Depot, resp: &mut Response) -> Serv
 
 /// Phone Login Request Body
 #[derive(Serialize, Deserialize, ToSchema, Validate)]
+#[serde(rename_all = "camelCase")]
 struct PhoneLogin {
     #[validate(length(equal = 11))]
     #[salvo(schema(max_length = 11, min_length = 11, example = "139xxxx1234"))]
@@ -142,14 +151,15 @@ struct PhoneLogin {
 
 /// Login Response Body
 #[derive(Serialize, Deserialize, ToResponse, ToSchema)]
-struct LoginResponse {
+#[serde(rename_all = "camelCase")]
+struct LoginResult {
     #[salvo(schema(example = "jwt.token.here"))]
     access_token: String,
     #[salvo(schema(example = "user-uuid"))]
     user_id: String,
 }
 
-impl Scribe for LoginResponse {
+impl Scribe for LoginResult {
     fn render(self, res: &mut Response) {
         res.render(Json(self));
     }

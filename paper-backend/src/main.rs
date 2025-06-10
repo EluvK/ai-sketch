@@ -34,7 +34,7 @@ async fn main() -> anyhow::Result<()> {
                 .collect::<Vec<_>>(),
         )
         .allow_methods(vec![Method::GET, Method::POST, Method::DELETE, Method::PUT])
-        .allow_headers("authorization")
+        .allow_headers(vec!["authorization", "content-type"])
         .into_handler();
 
     let router = Router::new().push(
