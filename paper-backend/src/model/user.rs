@@ -102,14 +102,14 @@ pub trait UserRepository {
 #[async_trait::async_trait]
 impl UserRepository for MongoClient {
     async fn create_user(&self, user: User) -> ServiceResult<()> {
-        self.collection(USER_COLLECTION_NAME)
+        self.collection::<User>(USER_COLLECTION_NAME)
             .insert_one(user)
             .await?;
         Ok(())
     }
 
     async fn update_user(&self, user: User) -> ServiceResult<()> {
-        let filter = doc! { "id": &user.uid };
+        let filter = doc! { "uid": &user.uid };
         let update = doc! { SET_OP: bson::to_bson(&user)? };
         self.collection::<User>(USER_COLLECTION_NAME)
             .update_one(filter, update)
@@ -117,8 +117,8 @@ impl UserRepository for MongoClient {
         Ok(())
     }
 
-    async fn delete_user(&self, id: String) -> ServiceResult<()> {
-        let filter = doc! { "id": id };
+    async fn delete_user(&self, uid: String) -> ServiceResult<()> {
+        let filter = doc! { "uid": uid };
         self.collection::<User>(USER_COLLECTION_NAME)
             .delete_one(filter)
             .await?;

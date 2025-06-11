@@ -14,6 +14,7 @@ use crate::{
 };
 
 mod auth;
+mod folder;
 mod user;
 
 pub fn create_router(config: &BackendConfig) -> Router {
@@ -32,6 +33,7 @@ pub fn create_router(config: &BackendConfig) -> Router {
         .hoop(auth_handler)
         .hoop(jwt_to_user)
         .push(Router::with_path("auth").push(auth::create_router()))
+        .push(Router::with_path("folder").push(folder::create_router()))
         .push(Router::with_path("user").push(user::create_router()))
         .oapi_security(SecurityRequirement::new("bearer", vec!["bearer"]));
 
