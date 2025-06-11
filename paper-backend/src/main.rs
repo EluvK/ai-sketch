@@ -6,7 +6,14 @@ mod router;
 // mod timed_task;
 mod utils;
 
-use salvo::{http::Method, prelude::*};
+use salvo::{
+    http::Method,
+    oapi::{
+        SecurityScheme,
+        security::{Http, HttpAuthScheme},
+    },
+    prelude::*,
+};
 // use timed_task::register_timed_task;
 use tracing::info;
 
@@ -42,7 +49,12 @@ async fn main() -> anyhow::Result<()> {
             .hoop(affix_state::inject(app_data))
             .push(router::create_router(&config.backend_config)),
     );
-    let doc = OpenApi::new("Paper Api", "0.0.1").merge_router(&router);
+    let doc = OpenApi::new("Paper Api", "0.0.1")
+        .add_security_scheme(
+            "bearer",
+            SecurityScheme::Http(Http::new(HttpAuthScheme::Bearer).bearer_format("JWT")),
+        )
+        .merge_router(&router);
 
     let router = router
         .unshift(doc.into_router("/api-doc/openapi.json"))

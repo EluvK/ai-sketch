@@ -1,7 +1,7 @@
 use salvo::{
     Depot, Request, Response, Router, Scribe, Writer, handler,
     http::cookie::{CookieBuilder, SameSite, time::Duration},
-    oapi::{ToResponse, ToSchema, endpoint, extract::*},
+    oapi::{RouterExt, ToResponse, ToSchema, endpoint, extract::*},
     writing::Json,
 };
 use serde::{Deserialize, Serialize};
@@ -16,21 +16,24 @@ use crate::{
 };
 
 pub fn create_router() -> Router {
-    Router::new().push(Router::with_path("edit").post(edit))
+    Router::new()
+        .push(Router::with_path("logout").post(logout))
+        .oapi_tag("auth")
+    // .push(Router::with_path("edit").post(edit))
 }
 
 pub fn create_non_auth_router() -> Router {
     Router::new()
         .push(Router::with_path("phone-login").post(phone_login))
-        .push(Router::with_path("register").post(register))
         .push(Router::with_path("refresh").post(refresh))
+        .oapi_tag("auth")
+    // .push(Router::with_path("register").post(register))
 }
 
 /// Phone Login
 ///
 /// Authenticates a user using their phone number.
 #[endpoint(
-    tags("auth"),
     status_codes(200, 201, 400, 401),
     request_body(content = PhoneLogin, description = "login/register by phone"),
     responses(
@@ -85,8 +88,10 @@ async fn phone_login(
     })
 }
 
+/// Refresh Token
+///
+/// Refreshes the JWT access token using the refresh token stored in cookies.
 #[endpoint(
-    tags("auth"),
     status_codes(200, 401),
     responses(
         (status_code = 200, body = LoginResult, description = "Token refreshed successfully"),
@@ -118,6 +123,34 @@ async fn refresh(req: &mut Request, resp: &mut Response) -> ServiceResult<LoginR
         access_token,
         user_id: user_id.clone(),
     })
+}
+
+/// Logout
+///
+/// Logs out the user by removing the refresh token cookie.
+#[endpoint(
+    status_codes(204, 401),
+    responses(
+        (status_code = 204, description = "Logout successful"),
+        (status_code = 401, description = "Unauthorized: Refresh token not found")
+    )
+)]
+async fn logout(req: &mut Request, depot: &mut Depot, resp: &mut Response) -> ServiceResult<()> {
+    // todo(nice to have), cache the deprecated refresh token to make sure it can't be used again
+    let _state = depot.obtain::<AppDataRef>()?;
+    let user = depot.obtain::<User>()?;
+    info!("Logging out user: {:?}", user);
+
+    let refresh_token = req
+        .cookies()
+        .get("refresh_token")
+        .ok_or_else(|| ServiceError::Unauthorized("Refresh token not found".to_string()))?
+        .value();
+
+    info!("Logging out user with refresh token: {}", refresh_token);
+    resp.remove_cookie("refresh_token");
+    resp.status_code(salvo::http::StatusCode::NO_CONTENT);
+    Ok(())
 }
 
 #[handler]

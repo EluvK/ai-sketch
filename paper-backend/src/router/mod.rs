@@ -1,6 +1,7 @@
 use salvo::{
     Depot, FlowCtrl, Request, Response, Router,
     jwt_auth::{ConstDecoder, HeaderFinder, QueryFinder},
+    oapi::{RouterExt, SecurityRequirement},
     prelude::{JwtAuth, JwtAuthDepotExt, JwtAuthState},
 };
 
@@ -31,7 +32,8 @@ pub fn create_router(config: &BackendConfig) -> Router {
         .hoop(auth_handler)
         .hoop(jwt_to_user)
         .push(Router::with_path("auth").push(auth::create_router()))
-        .push(Router::with_path("user").push(user::create_router()));
+        .push(Router::with_path("user").push(user::create_router()))
+        .oapi_security(SecurityRequirement::new("bearer", vec!["bearer"]));
 
     Router::new().push(non_auth_router).push(auth_router)
 }
