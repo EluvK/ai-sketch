@@ -69,6 +69,20 @@ pub struct User {
     pub last_login: Option<bson::DateTime>,
 }
 
+pub async fn create_index(client: &MongoClient) -> ServiceResult<()> {
+    let collection = client.collection::<User>(USER_COLLECTION_NAME);
+    let uid_index = mongodb::IndexModel::builder()
+        .keys(doc! { "uid": 1 })
+        .build();
+    let phone_hash_index = mongodb::IndexModel::builder()
+        .keys(doc! { "phone_hash": 1 })
+        .build();
+    collection
+        .create_indexes(vec![uid_index, phone_hash_index])
+        .await?;
+    Ok(())
+}
+
 impl User {
     pub fn new_by_phone(phone: String) -> Self {
         let now = bson::DateTime::now();

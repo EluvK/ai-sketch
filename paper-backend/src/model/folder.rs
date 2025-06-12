@@ -1,6 +1,7 @@
 use ai_flow_synth::utils::MongoClient;
 use bson::doc;
 use futures::TryStreamExt;
+use salvo::oapi::ToSchema;
 use serde::{Deserialize, Serialize};
 
 use crate::{error::ServiceResult, model::constant::*};
@@ -13,13 +14,17 @@ pub mod schema {
     };
     use serde::{Deserialize, Serialize};
 
-    use crate::model::folder::Folder;
+    use crate::model::folder::{Folder, FolderType};
 
     #[derive(Debug, Serialize, Deserialize, ToSchema)]
+    #[serde(rename_all = "camelCase")]
     pub struct FolderResponse {
         pub id: String,
+        pub parent_id: Option<String>,
+
         pub name: String,
         pub description: Option<String>,
+        pub r#type: FolderType,
     }
 
     #[derive(Debug, Serialize, Deserialize, ToResponse, ToSchema)]
@@ -35,8 +40,11 @@ pub mod schema {
         fn from(folder: Folder) -> Self {
             FolderResponse {
                 id: folder.id,
+                parent_id: folder.parent_id,
+
                 name: folder.name,
                 description: folder.description,
+                r#type: folder.r#type,
             }
         }
     }
@@ -53,6 +61,24 @@ pub struct Folder {
 
     pub name: String,
     pub description: Option<String>,
+    pub r#type: FolderType,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub enum FolderType {
+    #[serde(rename = "system")]
+    SystemDefined,
+    #[serde(rename = "user")]
+    UserDefined,
+}
+
+pub async fn create_index(client: &MongoClient) -> ServiceResult<()> {
+    let collection = client.collection::<Folder>(FOLDER_COLLECTION_NAME);
+    let index = mongodb::IndexModel::builder()
+        .keys(doc! { "user_id": 1, "name": 1 })
+        .build();
+    collection.create_index(index).await?;
+    Ok(())
 }
 
 #[async_trait::async_trait]
