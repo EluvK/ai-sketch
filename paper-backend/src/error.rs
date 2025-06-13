@@ -14,6 +14,8 @@ pub enum ServiceError {
     Unauthorized(String),
     #[error("400, Duplicate User {0}")]
     DuplicateUser(String),
+    #[error("404, Not Found {0}")]
+    NotFound(String),
     #[error("500, Internal Server Error {0}")]
     InternalServerError(String),
 
@@ -39,6 +41,10 @@ impl Scribe for ServiceError {
             ServiceError::DuplicateUser(msg) => {
                 res.status_code(StatusCode::BAD_REQUEST);
                 res.render(format!("Duplicate user: {}", msg));
+            }
+            ServiceError::NotFound(msg) => {
+                res.status_code(StatusCode::NOT_FOUND);
+                res.render(format!("Not found: {}", msg));
             }
             ServiceError::InternalServerError(msg) => {
                 res.status_code(StatusCode::INTERNAL_SERVER_ERROR);

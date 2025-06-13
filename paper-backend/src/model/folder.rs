@@ -16,7 +16,8 @@ pub mod schema {
 
     use crate::model::folder::{Folder, FolderType};
 
-    #[derive(Debug, Serialize, Deserialize, ToSchema)]
+    /// Response schema for a folder.
+    #[derive(Debug, Serialize, Deserialize, ToSchema, ToResponse)]
     #[serde(rename_all = "camelCase")]
     pub struct FolderResponse {
         pub id: String,
@@ -25,6 +26,12 @@ pub mod schema {
         pub name: String,
         pub description: Option<String>,
         pub r#type: FolderType,
+    }
+
+    impl Scribe for FolderResponse {
+        fn render(self, res: &mut Response) {
+            res.render(Json(self));
+        }
     }
 
     #[derive(Debug, Serialize, Deserialize, ToResponse, ToSchema)]
@@ -48,6 +55,32 @@ pub mod schema {
             }
         }
     }
+
+    /// Create Folder Request schema.
+    /// default type is `user`
+    /// if parent_id is None, it will be created in the root folder.
+    #[derive(Debug, Serialize, Deserialize, ToSchema)]
+    #[serde(rename_all = "camelCase")]
+    pub struct CreateFolderRequest {
+        #[salvo(schema(example = "parent-folder-uuid"))]
+        pub parent_id: Option<String>, // uuid of parent folder
+        #[salvo(schema(example = "folder-name"))]
+        pub name: String,
+        #[salvo(schema(example = "This is a folder description."))]
+        pub description: Option<String>,
+    }
+
+    /// Update Folder Request schema.
+    #[derive(Debug, Serialize, Deserialize, ToSchema)]
+    #[serde(rename_all = "camelCase")]
+    pub struct UpdateFolderRequest {
+        #[salvo(schema(example = "parent-folder-uuid"))]
+        pub parent_id: Option<String>, // uuid of parent folder
+        #[salvo(schema(example = "folder-name"))]
+        pub name: Option<String>,
+        #[salvo(schema(example = "This is a folder description."))]
+        pub description: Option<String>,
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -62,6 +95,36 @@ pub struct Folder {
     pub name: String,
     pub description: Option<String>,
     pub r#type: FolderType,
+}
+
+impl Folder {
+    pub fn default_system_folder(user_id: &str) -> Self {
+        Folder {
+            id: uuid::Uuid::new_v4().to_string(),
+            parent_id: None,
+            user_id: user_id.to_string(),
+            created_at: bson::DateTime::now(),
+            updated_at: bson::DateTime::now(),
+
+            name: "默认".to_string(),
+            description: Some("System-defined folder.".to_string()),
+            r#type: FolderType::SystemDefined,
+        }
+    }
+
+    pub fn new_from_request(user_id: &str, request: schema::CreateFolderRequest) -> Self {
+        Folder {
+            id: uuid::Uuid::new_v4().to_string(),
+            parent_id: request.parent_id,
+            user_id: user_id.to_string(),
+            created_at: bson::DateTime::now(),
+            updated_at: bson::DateTime::now(),
+
+            name: request.name,
+            description: request.description,
+            r#type: FolderType::UserDefined,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
